@@ -24,6 +24,7 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.yarn.api.records.NodeId;
 import org.apache.hadoop.yarn.proto.YarnProtos;
+import org.apache.hadoop.yarn.util.Records;
 import org.apache.tajo.ExecutionBlockId;
 import org.apache.tajo.QueryId;
 import org.apache.tajo.QueryIdFactory;
@@ -375,8 +376,12 @@ public class TajoWorkerResourceManager implements WorkerResourceManager {
                   new ArrayList<TajoMasterProtocol.WorkerAllocatedResource>();
 
               for(AllocatedWorkerResource eachWorker: allocatedWorkerResources) {
-                NodeId nodeId = NodeId.newInstance(eachWorker.workerResource.getAllocatedHost(),
-                    eachWorker.workerResource.getPeerRpcPort());
+                // TODO - CDH4.3.0 doesn't support this method.
+//                NodeId nodeId = NodeId.newInstance(eachWorker.workerResource.getAllocatedHost(),
+//                    eachWorker.workerResource.getPeerRpcPort());
+                NodeId nodeId = Records.newRecord(NodeId.class);
+                nodeId.setHost(eachWorker.workerResource.getAllocatedHost());
+                nodeId.setPort(eachWorker.workerResource.getPeerRpcPort());
 
                 TajoWorkerContainerId containerId = new TajoWorkerContainerId();
 

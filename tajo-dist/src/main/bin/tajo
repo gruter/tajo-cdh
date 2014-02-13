@@ -243,6 +243,14 @@ HIVE_LIB=$HIVE_HOME/lib
 
 if [ -d ${HIVE_LIB} ]; then
 
+  for f in ${HIVE_LIB}/commons-dbcp*.jar; do
+    CLASSPATH=${CLASSPATH}:$f;
+  done
+
+  for f in ${HIVE_LIB}/commons-pool*.jar; do
+    CLASSPATH=${CLASSPATH}:$f;
+  done
+
   for f in ${HIVE_LIB}/hive-*.jar; do
     CLASSPATH=${CLASSPATH}:$f;
   done
@@ -252,6 +260,10 @@ if [ -d ${HIVE_LIB} ]; then
   done
 
   for f in ${HIVE_LIB}/jdo-api-*.jar; do
+    CLASSPATH=${CLASSPATH}:$f;
+  done
+
+  for f in ${HIVE_LIB}/jdo2-api-*.jar; do
     CLASSPATH=${CLASSPATH}:$f;
   done
 
@@ -285,9 +297,14 @@ $HADOOP_HOME/share/hadoop/yarn/lib
 $HADOOP_HOME/share/hadoop/yarn"
 
 HADOOP_EXT_CLASSPATH="${HADOOP_CONF_DIR}"
+for f in $HADOOP_CONF_DIR/*.xml; do
+  HADOOP_EXT_CLASSPATH=${HADOOP_EXT_CLASSPATH}:$f
+done;
 
 for d in $HADOOP_MODULE_DIRS; do
-  CLASSPATH=${CLASSPATH}:$d/*
+  for j in `find $d/*.jar ! -name "*test*"`; do
+    CLASSPATH=${CLASSPATH}:$j
+  done;
 done;
 
 export HADOOP_EXT_CLASSPATH

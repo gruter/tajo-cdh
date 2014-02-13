@@ -23,21 +23,21 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.hadoop.yarn.YarnException;
+import org.apache.hadoop.yarn.api.AMRMProtocol;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
-import org.apache.hadoop.yarn.api.ApplicationMasterProtocol;
 import org.apache.hadoop.yarn.api.protocolrecords.FinishApplicationMasterRequest;
+import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationResponse;
 import org.apache.hadoop.yarn.api.records.*;
-import org.apache.hadoop.yarn.client.api.YarnClient;
-import org.apache.hadoop.yarn.client.api.YarnClientApplication;
-import org.apache.hadoop.yarn.client.api.impl.YarnClientImpl;
+import org.apache.hadoop.yarn.client.YarnClient;
+import org.apache.hadoop.yarn.client.YarnClientImpl;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
-import org.apache.hadoop.yarn.exceptions.YarnException;
-import org.apache.hadoop.yarn.exceptions.YarnRuntimeException;
+import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.ipc.YarnRPC;
 import org.apache.hadoop.yarn.proto.YarnProtos;
-import org.apache.hadoop.yarn.server.utils.BuilderUtils;
+import org.apache.hadoop.yarn.util.BuilderUtils;
 import org.apache.hadoop.yarn.util.Records;
 import org.apache.tajo.ExecutionBlockId;
 import org.apache.tajo.QueryId;
@@ -61,7 +61,7 @@ public class YarnTajoResourceManager implements WorkerResourceManager {
   private static final Log LOG = LogFactory.getLog(YarnTajoResourceManager.class);
 
   private YarnClient yarnClient;
-  private ApplicationMasterProtocol rmClient;
+  private AMRMProtocol rmClient;
   private final RecordFactory recordFactory = RecordFactoryProvider.getRecordFactory(null);
   private Configuration conf;
   private TajoMaster.MasterContext masterContext;
@@ -127,10 +127,10 @@ public class YarnTajoResourceManager implements WorkerResourceManager {
 
       queryInProgress.getEventHandler().handle(
           new QueryJobEvent(QueryJobEvent.Type.QUERY_JOB_START, queryInProgress.getQueryInfo()));
-    } catch (IOException e) {
-      LOG.error(e);
-    } catch (YarnException e) {
-      LOG.error(e);
+
+    } catch (YarnRemoteException e) {
+      LOG.error(e.getMessage(), e);
+      //TODO set QueryState(fail)
     }
   }
 
@@ -150,13 +150,13 @@ public class YarnTajoResourceManager implements WorkerResourceManager {
     try {
       currentUser = UserGroupInformation.getCurrentUser();
     } catch (IOException e) {
-      throw new YarnRuntimeException(e);
+      throw new YarnException(e);
     }
 
-    rmClient = currentUser.doAs(new PrivilegedAction<ApplicationMasterProtocol>() {
+    rmClient = currentUser.doAs(new PrivilegedAction<AMRMProtocol>() {
       @Override
-      public ApplicationMasterProtocol run() {
-        return (ApplicationMasterProtocol) rpc.getProxy(ApplicationMasterProtocol.class, rmAddress, yarnConf);
+      public AMRMProtocol run() {
+        return (AMRMProtocol) rpc.getProxy(AMRMProtocol.class, rmAddress, yarnConf);
       }
     });
   }
@@ -164,8 +164,10 @@ public class YarnTajoResourceManager implements WorkerResourceManager {
   @Override
   public String getSeedQueryId() throws IOException {
     try {
-      YarnClientApplication app = yarnClient.createApplication();
-      return app.getApplicationSubmissionContext().getApplicationId().toString();
+      GetNewApplicationResponse newApp = yarnClient.getNewApplication();
+      ApplicationId appId = newApp.getApplicationId();
+
+      return appId.toString();
     } catch (Exception e) {
       LOG.error(e.getMessage(), e);
 
@@ -191,7 +193,8 @@ public class YarnTajoResourceManager implements WorkerResourceManager {
       }
       FinishApplicationMasterRequest request = recordFactory
           .newRecordInstance(FinishApplicationMasterRequest.class);
-      request.setFinalApplicationStatus(appStatus);
+      request.setAppAttemptId(ApplicationIdUtils.createApplicationAttemptId(queryId));
+      request.setFinishApplicationStatus(appStatus);
       request.setDiagnostics("QueryMaster shutdown by TajoMaster.");
       rmClient.finishApplicationMaster(request);
     } catch (Exception e) {
@@ -205,7 +208,8 @@ public class YarnTajoResourceManager implements WorkerResourceManager {
     this.yarnClient.start();
   }
 
-  private ApplicationAttemptId allocateAndLaunchQueryMaster(QueryInProgress queryInProgress) throws IOException, YarnException {
+  private ApplicationAttemptId allocateAndLaunchQueryMaster(QueryInProgress queryInProgress)
+      throws YarnRemoteException {
     QueryId queryId = queryInProgress.getQueryId();
     ApplicationId appId = ApplicationIdUtils.queryIdToAppId(queryId);
 
@@ -276,18 +280,15 @@ public class YarnTajoResourceManager implements WorkerResourceManager {
     final Resource resource = Records.newRecord(Resource.class);
     // TODO - get default value from conf
     resource.setMemory(2000);
-    resource.setVirtualCores(1);
+    // TODO - CDH4.3.0 doesn't support this method.
+//    resource.setVirtualCores(1);
 
     Map<String, ByteBuffer> myServiceData = new HashMap<String, ByteBuffer>();
 
     ContainerLaunchContext masterContainerContext = BuilderUtils.newContainerLaunchContext(
-        commonContainerLaunchContext.getLocalResources(),
-        myEnv,
-        commands,
-        myServiceData,
-        null,
-        new HashMap<ApplicationAccessType, String>(2)
-    );
+        null, commonContainerLaunchContext.getUser(),
+        resource, commonContainerLaunchContext.getLocalResources(), myEnv, commands,
+        myServiceData, null, new HashMap<ApplicationAccessType, String>(2));
 
     appContext.setAMContainerSpec(masterContainerContext);
 
@@ -303,7 +304,7 @@ public class YarnTajoResourceManager implements WorkerResourceManager {
   }
 
   private ApplicationReport monitorApplication(ApplicationId appId,
-                                               Set<YarnApplicationState> finalState) throws IOException, YarnException {
+                                               Set<YarnApplicationState> finalState) throws YarnRemoteException {
 
     long sleepTime = 100;
     int count = 1;
@@ -314,7 +315,7 @@ public class YarnTajoResourceManager implements WorkerResourceManager {
       LOG.info("Got application report from ASM for" + ", appId="
           + appId.getId() + ", appAttemptId="
           + report.getCurrentApplicationAttemptId() + ", clientToken="
-          + report.getClientToAMToken() + ", appDiagnostics="
+          + report.getClientToken() + ", appDiagnostics="
           + report.getDiagnostics() + ", appMasterHost=" + report.getHost()
           + ", appQueue=" + report.getQueue() + ", appMasterRpcPort="
           + report.getRpcPort() + ", appStartTime=" + report.getStartTime()
@@ -348,10 +349,7 @@ public class YarnTajoResourceManager implements WorkerResourceManager {
           YarnApplicationState.FINISHED,
           YarnApplicationState.KILLED,
           YarnApplicationState.FAILED).contains(state);
-    } catch (YarnException e) {
-      LOG.error(e.getMessage(), e);
-      return false;
-    } catch (IOException e) {
+    } catch (YarnRemoteException e) {
       LOG.error(e.getMessage(), e);
       return false;
     }

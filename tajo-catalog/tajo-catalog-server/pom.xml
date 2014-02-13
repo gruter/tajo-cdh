@@ -131,6 +131,7 @@
     <dependency>
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java</artifactId>
+      <version>${protobuf.version}</version>
     </dependency>
     <dependency>
       <groupId>junit</groupId>
@@ -149,6 +150,11 @@
       <groupId>org.apache.derby</groupId>
       <artifactId>derby</artifactId>
       <version>10.8.2.2</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-yarn-common</artifactId>
+      <version>${hadoop.version}</version>
     </dependency>
   </dependencies>
 

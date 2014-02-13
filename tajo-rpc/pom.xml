@@ -166,6 +166,7 @@
     <dependency>
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java</artifactId>
+      <version>${protobuf.version}</version>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>

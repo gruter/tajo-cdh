@@ -36,8 +36,8 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <tajo.version>0.8.0-SNAPSHOT</tajo.version>
-    <hadoop.version>2.2.0</hadoop.version>
-    <protobuf.version>2.5.0</protobuf.version>
+    <hadoop.version>2.0.0-cdh4.3.0</hadoop.version>
+    <protobuf.version>2.4.1</protobuf.version>
     <tajo.root>${project.parent.relativePath}/..</tajo.root>
   </properties>
 
@@ -274,8 +274,8 @@
 
   <repositories>
     <repository>
-      <id>apache.snapshots</id>
-      <url>http://repository.apache.org/snapshots</url>
+      <id>cloudera</id>
+      <url>https://repository.cloudera.com/artifactory/cloudera-repos/</url>
       <snapshots>
         <enabled>true</enabled>
       </snapshots>
@@ -856,6 +856,40 @@
     </dependencies>
   </dependencyManagement>
   <profiles>
+    <profile>
+      <id>hadoop-cdh4.3.0</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <properties>
+        <hadoop.version>2.0.0-cdh4.3.0</hadoop.version>
+      </properties>
+    </profile>
+    <profile>
+    <id>hadoop-cdh4.4.0</id>
+    <activation>
+      <activeByDefault>false</activeByDefault>
+    </activation>
+    <properties>
+      <hadoop.version>2.0.0-cdh4.4.0</hadoop.version>
+    </properties>
+    </profile>
+    <profile>
+      <id>hadoop-cdh4.5.0</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <properties>
+        <hadoop.version>2.0.0-cdh4.5.0</hadoop.version>
+      </properties>
+      <dependencies>
+        <dependency>
+          <groupId>com.google.guava</groupId>
+          <artifactId>guava</artifactId>
+          <version>15.0</version>
+        </dependency>
+      </dependencies>
+    </profile>
     <profile>
       <id>docs</id>
       <activation>

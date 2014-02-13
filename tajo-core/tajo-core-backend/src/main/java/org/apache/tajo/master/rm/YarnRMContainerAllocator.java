@@ -18,35 +18,27 @@
 
 package org.apache.tajo.master.rm;
 
-import com.google.common.collect.Lists;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.yarn.YarnException;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse;
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
-import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
-import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
 import org.apache.hadoop.yarn.api.records.Priority;
-import org.apache.hadoop.yarn.client.api.impl.AMRMClientImpl;
+import org.apache.hadoop.yarn.client.AMRMClientImpl;
 import org.apache.hadoop.yarn.event.EventHandler;
-import org.apache.hadoop.yarn.exceptions.YarnException;
+import org.apache.hadoop.yarn.exceptions.YarnRemoteException;
 import org.apache.tajo.ExecutionBlockId;
 import org.apache.tajo.TajoProtos;
 import org.apache.tajo.master.event.ContainerAllocationEvent;
 import org.apache.tajo.master.event.ContainerAllocatorEventType;
-import org.apache.tajo.master.event.SubQueryContainerAllocationEvent;
 import org.apache.tajo.master.querymaster.Query;
 import org.apache.tajo.master.querymaster.QueryMasterTask;
-import org.apache.tajo.master.querymaster.SubQuery;
-import org.apache.tajo.master.querymaster.SubQueryState;
 import org.apache.tajo.util.ApplicationIdUtils;
 
-import java.io.IOException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -58,13 +50,11 @@ public class YarnRMContainerAllocator extends AMRMClientImpl
       class.getName());
 
   private QueryMasterTask.QueryMasterTaskContext context;
-  private ApplicationAttemptId appAttemptId;
   private final EventHandler eventHandler;
 
   public YarnRMContainerAllocator(QueryMasterTask.QueryMasterTaskContext context) {
-    super();
+    super(ApplicationIdUtils.createApplicationAttemptId(context.getQueryId()));
     this.context = context;
-    this.appAttemptId = ApplicationIdUtils.createApplicationAttemptId(context.getQueryId());
     this.eventHandler = context.getDispatcher().getEventHandler();
   }
 
@@ -92,9 +82,7 @@ public class YarnRMContainerAllocator extends AMRMClientImpl
         }
       }
       context.getQueryMasterContext().getWorkerContext().setNumClusterNodes(allocateResponse.getNumClusterNodes());
-    } catch (IOException e) {
-      LOG.error(e);
-    } catch (YarnException e) {
+    } catch (YarnRemoteException e) {
       LOG.error(e);
     }
 
@@ -177,46 +165,52 @@ public class YarnRMContainerAllocator extends AMRMClientImpl
 
   public void heartbeat() throws Exception {
     AllocateResponse allocateResponse = allocate(context.getProgress());
-
-    List<Container> allocatedContainers = allocateResponse.getAllocatedContainers();
-
-    long currentTime = System.currentTimeMillis();
-    if ((currentTime - prevReportTime.longValue()) >= reportInterval) {
-      LOG.debug("Available Cluster Nodes: " + allocateResponse.getNumClusterNodes());
-      LOG.debug("Num of Allocated Containers: " + allocatedContainers.size());
-      LOG.info("Available Resource: " + allocateResponse.getAvailableResources());
-      prevReportTime.set(currentTime);
-    }
-
-    if (allocatedContainers.size() > 0) {
-      LOG.info("================================================================");
-      for (Container container : allocateResponse.getAllocatedContainers()) {
-        LOG.info("> Container Id: " + container.getId());
-        LOG.info("> Node Id: " + container.getNodeId());
-        LOG.info("> Resource (Mem): " + container.getResource().getMemory());
-        LOG.info("> Priority: " + container.getPriority());
-      }
-      LOG.info("================================================================");
-
-      Map<ExecutionBlockId, List<Container>> allocated = new HashMap<ExecutionBlockId, List<Container>>();
-      for (Container container : allocatedContainers) {
-        ExecutionBlockId executionBlockId = subQueryMap.get(container.getPriority());
-        SubQueryState state = context.getSubQuery(executionBlockId).getState();
-        if (!(SubQuery.isRunningState(state))) {
-          releaseAssignedContainer(container.getId());
-        } else {
-          if (allocated.containsKey(executionBlockId)) {
-            allocated.get(executionBlockId).add(container);
-          } else {
-            allocated.put(executionBlockId, Lists.newArrayList(container));
-          }
-        }
-      }
-
-      for (Entry<ExecutionBlockId, List<Container>> entry : allocated.entrySet()) {
-        eventHandler.handle(new SubQueryContainerAllocationEvent(entry.getKey(), entry.getValue()));
-      }
-    }
+    // TODO - CDH4.4.0 doesn't support this method.
+//    AMResponse response = allocateResponse.getAMResponse();
+//    if(response == null) {
+//      LOG.warn("AM Response is null");
+//      return;
+//    }
+//    List<Container> allocatedContainers = response.getAllocatedContainers();
+//
+//    long currentTime = System.currentTimeMillis();
+//    if ((currentTime - prevReportTime.longValue()) >= reportInterval) {
+//      LOG.debug("Available Cluster Nodes: " + allocateResponse.getNumClusterNodes());
+//      LOG.debug("Num of Allocated Containers: " + allocatedContainers.size());
+//      LOG.info("Available Resource: " + response.getAvailableResources());
+//      prevReportTime.set(currentTime);
+//    }
+//
+//    if (allocatedContainers.size() > 0) {
+//      LOG.info("================================================================");
+//      for (Container container : response.getAllocatedContainers()) {
+//        LOG.info("> Container Id: " + container.getId());
+//        LOG.info("> Node Id: " + container.getNodeId());
+//        LOG.info("> Resource (Mem): " + container.getResource().getMemory());
+//        LOG.info("> State : " + container.getState());
+//        LOG.info("> Priority: " + container.getPriority());
+//      }
+//      LOG.info("================================================================");
+//
+//      Map<ExecutionBlockId, List<Container>> allocated = new HashMap<ExecutionBlockId, List<Container>>();
+//      for (Container container : allocatedContainers) {
+//        ExecutionBlockId executionBlockId = subQueryMap.get(container.getPriority());
+//        SubQueryState state = context.getSubQuery(executionBlockId).getState();
+//        if (!(SubQuery.isRunningState(state))) {
+//          releaseAssignedContainer(container.getId());
+//        } else {
+//          if (allocated.containsKey(executionBlockId)) {
+//            allocated.get(executionBlockId).add(container);
+//          } else {
+//            allocated.put(executionBlockId, Lists.newArrayList(container));
+//          }
+//        }
+//      }
+//
+//      for (Entry<ExecutionBlockId, List<Container>> entry : allocated.entrySet()) {
+//        eventHandler.handle(new SubQueryContainerAllocationEvent(entry.getKey(), entry.getValue()));
+//      }
+//    }
   }
 
   @Override
@@ -226,7 +220,7 @@ public class YarnRMContainerAllocator extends AMRMClientImpl
       LOG.info(event);
       subQueryMap.put(event.getPriority(), event.getExecutionBlockId());
       addContainerRequest(new ContainerRequest(event.getCapability(), null, null,
-          event.getPriority()));
+          event.getPriority(), event.getRequiredNum()));
 
     } else if (event.getType() == ContainerAllocatorEventType.CONTAINER_DEALLOCATE) {
       LOG.info(event);

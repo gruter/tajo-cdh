@@ -86,8 +86,9 @@ public class TajoWorkerContainerId extends ContainerId {
     }
   }
 
-  @Override
-  protected void build() {
-
-  }
+  // TODO - CDH4.3.0 doesn't support this method.
+//  @Override
+//  protected void build() {
+//
+//  }
 }

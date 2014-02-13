@@ -212,6 +212,7 @@
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-common</artifactId>
       <scope>provided</scope>
+      <version>${hadoop.version}</version>
       <exclusions>
         <exclusion>
           <groupId>commons-el</groupId>
@@ -243,6 +244,7 @@
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-hdfs</artifactId>
       <scope>provided</scope>
+      <version>${hadoop.version}</version>
       <exclusions>
         <exclusion>
           <groupId>commons-el</groupId>

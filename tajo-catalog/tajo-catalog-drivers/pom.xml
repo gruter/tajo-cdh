@@ -47,6 +47,33 @@
 
   <profiles>
     <profile>
+      <id>hcatalog-cdh4.3.0</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <modules>
+        <module>tajo-hcatalog</module>
+      </modules>
+    </profile>
+    <profile>
+      <id>hcatalog-cdh4.4.0</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <modules>
+        <module>tajo-hcatalog</module>
+      </modules>
+    </profile>
+    <profile>
+      <id>hcatalog-cdh4.5.0</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <modules>
+        <module>tajo-hcatalog</module>
+      </modules>
+    </profile>
+    <profile>
       <id>hcatalog-0.11.0</id>
       <activation>
         <activeByDefault>false</activeByDefault>

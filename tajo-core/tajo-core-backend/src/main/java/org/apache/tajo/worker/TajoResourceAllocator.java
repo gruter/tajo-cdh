@@ -32,6 +32,7 @@ import org.apache.hadoop.yarn.api.records.NodeId;
 import org.apache.hadoop.yarn.api.records.impl.pb.ApplicationAttemptIdPBImpl;
 import org.apache.hadoop.yarn.event.EventHandler;
 import org.apache.hadoop.yarn.proto.YarnProtos;
+import org.apache.hadoop.yarn.util.Records;
 import org.apache.tajo.ExecutionBlockId;
 import org.apache.tajo.conf.TajoConf;
 import org.apache.tajo.ipc.TajoMasterProtocol;
@@ -286,9 +287,12 @@ public class TajoResourceAllocator extends AbstractResourceAllocator {
         List<Container> containers = new ArrayList<Container>();
         for(TajoMasterProtocol.WorkerAllocatedResource eachAllocatedResource: allocatedResources) {
           TajoWorkerContainer container = new TajoWorkerContainer();
-          NodeId nodeId = NodeId.newInstance(eachAllocatedResource.getWorkerHost(),
-              eachAllocatedResource.getPeerRpcPort());
-
+          // TODO - CDH4.3.0 doesn't support this method.
+//          NodeId nodeId = NodeId.newInstance(eachAllocatedResource.getWorkerHost(),
+//              eachAllocatedResource.getPeerRpcPort());
+          NodeId nodeId = Records.newRecord(NodeId.class);
+          nodeId.setHost(eachAllocatedResource.getWorkerHost());
+          nodeId.setPort(eachAllocatedResource.getPeerRpcPort());
           TajoWorkerContainerId containerId = new TajoWorkerContainerId();
 
           containerId.setApplicationAttemptId(

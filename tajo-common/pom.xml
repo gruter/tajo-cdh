@@ -35,16 +35,6 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 
-  <repositories>
-    <repository>
-      <id>apache.snapshots</id>
-      <url>http://repository.apache.org/snapshots</url>
-      <snapshots>
-        <enabled>true</enabled>
-      </snapshots>
-    </repository>
-  </repositories>
-
   <build>
     <plugins>
       <plugin>
@@ -136,10 +126,12 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
     <dependency>
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java</artifactId>
+      <version>${protobuf.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-common</artifactId>
+      <version>${hadoop.version}</version>
     </dependency>
     <dependency>
       <groupId>commons-logging</groupId>

@@ -40,9 +40,8 @@ import org.apache.hadoop.metrics2.lib.MutableCounterLong;
 import org.apache.hadoop.metrics2.lib.MutableGaugeInt;
 import org.apache.hadoop.security.ssl.SSLFactory;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
-import org.apache.hadoop.yarn.server.api.ApplicationInitializationContext;
-import org.apache.hadoop.yarn.server.api.ApplicationTerminationContext;
-import org.apache.hadoop.yarn.server.api.AuxiliaryService;
+import org.apache.hadoop.yarn.server.nodemanager.containermanager.AuxServices;
+import org.apache.hadoop.yarn.service.AbstractService;
 import org.apache.tajo.QueryId;
 import org.apache.tajo.catalog.Schema;
 import org.apache.tajo.conf.TajoConf;
@@ -88,7 +87,8 @@ import static org.jboss.netty.handler.codec.http.HttpMethod.GET;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.*;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
-public class PullServerAuxService extends AuxiliaryService {
+public class PullServerAuxService extends AbstractService
+    implements AuxServices.AuxiliaryService {
 
   private static final Log LOG = LogFactory.getLog(PullServerAuxService.class);
   
@@ -187,18 +187,18 @@ public class PullServerAuxService extends AuxiliaryService {
   }
 
   @Override
-  public void initializeApplication(ApplicationInitializationContext appInitContext) {
+  public void initApp(String user, ApplicationId appId, ByteBuffer secret) {
     // TODO these bytes should be versioned
     // TODO: Once SHuffle is out of NM, this can use MR APIs
-    this.appId = appInitContext.getApplicationId();
+    this.appId = appId;
     this.queryId = TajoIdUtils.parseQueryId(appId.toString());
-    this.userName = appInitContext.getUser();
-    userRsrc.put(this.appId.toString(), this.userName);
+    this.userName = user;
+    userRsrc.put(appId.toString(), user);
   }
 
   @Override
-  public void stopApplication(ApplicationTerminationContext appStopContext) {
-    userRsrc.remove(appStopContext.getApplicationId().toString());
+  public void stopApp(ApplicationId appId) {
+    userRsrc.remove(appId.toString());
   }
 
   @Override
@@ -274,7 +274,7 @@ public class PullServerAuxService extends AuxiliaryService {
   }
 
   @Override
-  public synchronized ByteBuffer getMetaData() {
+  public synchronized ByteBuffer getMeta() {
     try {
       return serializeMetaData(port); 
     } catch (IOException e) {
@@ -657,3 +657,4 @@ public class PullServerAuxService extends AuxiliaryService {
     return chunk;
   }
 }
+

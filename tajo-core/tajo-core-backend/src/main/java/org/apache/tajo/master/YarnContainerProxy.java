@@ -22,21 +22,22 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
-import org.apache.hadoop.yarn.api.ContainerManagementProtocol;
+import org.apache.hadoop.yarn.api.ContainerManager;
 import org.apache.hadoop.yarn.api.protocolrecords.StartContainerRequest;
-import org.apache.hadoop.yarn.api.protocolrecords.StartContainersRequest;
-import org.apache.hadoop.yarn.api.protocolrecords.StartContainersResponse;
-import org.apache.hadoop.yarn.api.protocolrecords.StopContainersRequest;
+import org.apache.hadoop.yarn.api.protocolrecords.StartContainerResponse;
+import org.apache.hadoop.yarn.api.protocolrecords.StopContainerRequest;
 import org.apache.hadoop.yarn.api.records.*;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.factories.RecordFactory;
 import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.ipc.YarnRPC;
 import org.apache.hadoop.yarn.security.ContainerTokenIdentifier;
-import org.apache.hadoop.yarn.server.utils.BuilderUtils;
+import org.apache.hadoop.yarn.util.BuilderUtils;
 import org.apache.hadoop.yarn.util.ConverterUtils;
+import org.apache.hadoop.yarn.util.ProtoUtils;
 import org.apache.hadoop.yarn.util.Records;
 import org.apache.tajo.ExecutionBlockId;
 import org.apache.tajo.TajoConstants;
@@ -56,10 +57,10 @@ public class YarnContainerProxy extends ContainerProxy {
 
   protected final YarnRPC yarnRPC;
   final protected String containerMgrAddress;
-  protected Token containerToken;
+  protected ContainerToken containerToken;
 
   public YarnContainerProxy(QueryMasterTask.QueryMasterTaskContext context, Configuration conf, YarnRPC yarnRPC,
-                                  Container container, ExecutionBlockId executionBlockId) {
+                            Container container, ExecutionBlockId executionBlockId) {
     super(context, conf, executionBlockId, container);
     this.yarnRPC = yarnRPC;
 
@@ -68,9 +69,9 @@ public class YarnContainerProxy extends ContainerProxy {
     this.containerToken = container.getContainerToken();
   }
 
-  protected ContainerManagementProtocol getCMProxy(ContainerId containerID,
-                                                   final String containerManagerBindAddr,
-                                                   Token containerToken)
+  protected ContainerManager getCMProxy(ContainerId containerID,
+                                        final String containerManagerBindAddr,
+                                        ContainerToken containerToken)
       throws IOException {
     String [] hosts = containerManagerBindAddr.split(":");
     final InetSocketAddress cmAddr =
@@ -78,17 +79,17 @@ public class YarnContainerProxy extends ContainerProxy {
     UserGroupInformation user = UserGroupInformation.getCurrentUser();
 
     if (UserGroupInformation.isSecurityEnabled()) {
-      org.apache.hadoop.security.token.Token<ContainerTokenIdentifier> token =
-          ConverterUtils.convertFromYarn(containerToken, cmAddr);
+      Token<ContainerTokenIdentifier> token =
+          ProtoUtils.convertFromProtoFormat(containerToken, cmAddr);
       // the user in createRemoteUser in this context has to be ContainerID
       user = UserGroupInformation.createRemoteUser(containerID.toString());
       user.addToken(token);
     }
 
-    ContainerManagementProtocol proxy = user.doAs(new PrivilegedAction<ContainerManagementProtocol>() {
+    ContainerManager proxy = user.doAs(new PrivilegedAction<ContainerManager>() {
       @Override
-      public ContainerManagementProtocol run() {
-        return (ContainerManagementProtocol) yarnRPC.getProxy(ContainerManagementProtocol.class,
+      public ContainerManager run() {
+        return (ContainerManager) yarnRPC.getProxy(ContainerManager.class,
             cmAddr, conf);
       }
     });
@@ -106,7 +107,7 @@ public class YarnContainerProxy extends ContainerProxy {
       return;
     }
 
-    ContainerManagementProtocol proxy = null;
+    ContainerManager proxy = null;
     try {
 
       proxy = getCMProxy(containerID, containerMgrAddress,
@@ -116,16 +117,13 @@ public class YarnContainerProxy extends ContainerProxy {
       ContainerLaunchContext containerLaunchContext = createContainerLaunchContext(commonContainerLaunchContext);
 
       // Now launch the actual container
-      List<StartContainerRequest> startRequestList = new ArrayList<StartContainerRequest>();
       StartContainerRequest startRequest = Records
           .newRecord(StartContainerRequest.class);
       startRequest.setContainerLaunchContext(containerLaunchContext);
-      startRequestList.add(startRequest);
-      StartContainersRequest startRequests = Records.newRecord(StartContainersRequest.class);
-      startRequests.setStartContainerRequests(startRequestList);
-      StartContainersResponse response = proxy.startContainers(startRequests);
+      StartContainerResponse response = proxy.startContainer(startRequest);
 
-      ByteBuffer portInfo = response.getAllServicesMetaData().get(PullServerAuxService.PULLSERVER_SERVICEID);
+      ByteBuffer portInfo = response
+          .getServiceResponse(PullServerAuxService.PULLSERVER_SERVICEID);
 
       if(portInfo != null) {
         port = PullServerAuxService.deserializeMetaData(portInfo);
@@ -208,12 +206,9 @@ public class YarnContainerProxy extends ContainerProxy {
     List<String> commands = new ArrayList<String>();
     commands.add(command.toString());
 
-    return BuilderUtils.newContainerLaunchContext(commonContainerLaunchContext.getLocalResources(),
-        myEnv,
-        commands,
-        myServiceData,
-        null,
-        new HashMap<ApplicationAccessType, String>());
+    return BuilderUtils.newContainerLaunchContext(containerID, commonContainerLaunchContext.getUser(),
+        container.getResource(), commonContainerLaunchContext.getLocalResources(), myEnv, commands,
+        myServiceData, null, new HashMap<ApplicationAccessType, String>());
   }
 
   public static ContainerLaunchContext createCommonContainerLaunchContext(Configuration config,
@@ -221,10 +216,8 @@ public class YarnContainerProxy extends ContainerProxy {
     TajoConf conf = (TajoConf)config;
 
     ContainerLaunchContext ctx = Records.newRecord(ContainerLaunchContext.class);
-
     try {
-      ByteBuffer userToken = ByteBuffer.wrap(UserGroupInformation.getCurrentUser().getShortUserName().getBytes());
-      ctx.setTokens(userToken);
+      ctx.setUser(UserGroupInformation.getCurrentUser().getShortUserName());
     } catch (IOException e) {
       e.printStackTrace();
     }
@@ -274,7 +267,7 @@ public class YarnContainerProxy extends ContainerProxy {
             ApplicationConstants.Environment.HADOOP_HDFS_HOME.name(),
             System.getenv("HADOOP_HOME"));
         environment.put(
-            ApplicationConstants.Environment.HADOOP_YARN_HOME.name(),
+            ApplicationConstants.Environment.YARN_HOME.name(),
             System.getenv("HADOOP_HOME"));
       }
 
@@ -369,17 +362,16 @@ public class YarnContainerProxy extends ContainerProxy {
     } else {
       LOG.info("KILLING " + containerID);
 
-      ContainerManagementProtocol proxy = null;
+      ContainerManager proxy = null;
       try {
         proxy = getCMProxy(this.containerID, this.containerMgrAddress,
             this.containerToken);
 
         // kill the remote container if already launched
-        List<ContainerId> willBeStopedIds = new ArrayList<ContainerId>();
-        willBeStopedIds.add(this.containerID);
-        StopContainersRequest stopRequests = Records.newRecord(StopContainersRequest.class);
-        stopRequests.setContainerIds(willBeStopedIds);
-        proxy.stopContainers(stopRequests);
+        StopContainerRequest stopRequest = Records
+            .newRecord(StopContainerRequest.class);
+        stopRequest.setContainerId(this.containerID);
+        proxy.stopContainer(stopRequest);
         // If stopContainer returns without an error, assuming the stop made
         // it over to the NodeManager.
 //          context.getEventHandler().handle(

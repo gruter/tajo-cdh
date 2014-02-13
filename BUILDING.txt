@@ -6,7 +6,7 @@ Requirements:
 * Unix System
 * JDK 1.6 or higher
 * Maven 3.0 or higher
-* Protocol Buffers 2.5.0
+* Protocol Buffers 2.4.1
 * Internet connection for first build (to fetch all Maven and Tajo dependencies)
 
 --------------------------------------------------------------------------------
@@ -35,6 +35,11 @@ Maven build goals:
 
  Build options:
   * Use -Dtar to create a TAR with the distribution (using -Pdist)
+  * Use -Phadoop-cdh4.4.0 to apply on hadoop-2.0.0-cdh4.4.0
+  * Use -Phadoop-cdh4.5.0 to apply on hadoop-2.0.0-cdh4.5.0
+  * Use -Phcatalog-cdh4.3.0 to integrate with hive-0.10.0-cdh4.3.0
+  * Use -Phcatalog-cdh4.4.0 to integrate with hive-0.10.0-cdh4.4.0
+  * Use -Phcatalog-cdh4.5.0 to integrate with hive-0.10.0-cdh4.5.0
 
  Tests options:
   * Use -DskipTests to skip tests when running the following Maven goals:
@@ -46,8 +51,16 @@ Maven build goals:
 --------------------------------------------------------------------------------
 Building distributions:
 
-Create binary distribution
+Create binary distribution for cdh4.3.0
 
   $ mvn package -Pdist -DskipTests -Dtar
+
+Create binary distribution for cdh4.4.0
+
+  $ mvn package -Pdist -DskipTests -Dtar -Phadoop-cdh4.4.0
+
+Create binary distribution for cdh4.5.0
+
+  $ mvn package -Pdist -DskipTests -Dtar -Phadoop-cdh4.5.0
 
 --------------------------------------------------------------------------------
