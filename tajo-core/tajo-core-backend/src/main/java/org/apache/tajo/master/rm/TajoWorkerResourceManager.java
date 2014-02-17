@@ -324,7 +324,7 @@ public class TajoWorkerResourceManager implements WorkerResourceManager {
     }
   }
 
-  class WorkerResourceRequest {
+  static class WorkerResourceRequest {
     boolean queryMasterRequest;
     QueryId queryId;
     TajoMasterProtocol.WorkerResourceAllocationRequest request;
@@ -340,7 +340,7 @@ public class TajoWorkerResourceManager implements WorkerResourceManager {
     }
   }
 
-  class AllocatedWorkerResource {
+  static class AllocatedWorkerResource {
     WorkerResource workerResource;
     int allocatedMemoryMB;
     float allocatedDiskSlots;
