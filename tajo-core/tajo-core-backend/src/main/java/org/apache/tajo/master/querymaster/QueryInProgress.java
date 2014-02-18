@@ -92,6 +92,10 @@ public class QueryInProgress extends CompositeService {
     super.init(conf);
   }
 
+  public void kill() {
+    queryMasterRpcClient.killQuery(null, queryId.getProto(), NullCallback.get());
+  }
+
   @Override
   public void stop() {
     if(stopped.getAndSet(true)) {
@@ -173,6 +177,8 @@ public class QueryInProgress extends CompositeService {
         submmitQueryToMaster();
       } else if(queryJobEvent.getType() == QueryJobEvent.Type.QUERY_JOB_FINISH) {
         stop();
+      } else if (queryJobEvent.getType() == QueryJobEvent.Type.QUERY_JOB_KILL) {
+        kill();
       }
     }
   }
