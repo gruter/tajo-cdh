@@ -935,7 +935,8 @@ public class LogicalPlanner extends BaseAlgebraVisitor<LogicalPlanner.PlanContex
     //
     // newlyEvaluatedExprsRef keeps
     Set<String> newlyEvaluatedExprsReferences = new LinkedHashSet<String>();
-    for (NamedExpr rawTarget : block.namedExprsMgr.getAllNamedExprs()) {
+    for (Iterator<NamedExpr> iterator = block.namedExprsMgr.getIteratorForUnevaluatedExprs(); iterator.hasNext();) {
+      NamedExpr rawTarget = iterator.next();
       try {
         EvalNode evalNode = exprAnnotator.createEvalNode(context.plan, context.queryBlock, rawTarget.getExpr());
         if (checkIfBeEvaluatedAtRelation(block, evalNode, scanNode)) {
