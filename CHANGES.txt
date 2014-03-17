@@ -130,6 +130,9 @@ Release 0.8.0 - unreleased
 
   IMPROVEMENTS
 
+    TAJO-553: Add a method to the TajoClient to get finished query lists.
+    (Ilhyun Suh via jihoon)
+
     TAJO-670: Change daemon's hostname to canonical hostname 
     (hyoungjunkim via hyunsik)
 
@@ -272,6 +275,10 @@ Release 0.8.0 - unreleased
     (Keuntae Park via jihoon)
 
   BUG FIXES
+
+    TAJO-651: HcatalogStore should support (de)serialization of RCFile. (jinho)
+
+    TAJO-647: Work unbalance on disk scheduling of DefaultScheduler. (jinho)
 
     TAJO-672: Wrong progress status when overwrites to partition table.
     (hyoungjunkim via hyunsik)
@@ -524,6 +531,10 @@ Release 0.8.0 - unreleased
 
   TASKS
 
+    TAJO-669: Add cluster setup documentation. (hyunsik)
+
+    TAJO-681: Embed sphinx rtd theme into tajo-docs. (hyunsik)
+
     TAJO-657: Missing table stat in RCFile. (jinho)
 
     TAJO-659: Add Tajo JDBC documentation. (hyunsik)
@@ -572,6 +583,10 @@ Release 0.8.0 - unreleased
     TAJO-320: Visualize Tajo statemachine. (Min Zhou via hyunsik)
 
     TAJO-319: Update homepage and bump tajo version to 0.8. (hyunsik)
+
+  TEST
+
+    TAJO-686: Integration test aborted. (jinho)
 
 Release 0.2.0 - released
 
