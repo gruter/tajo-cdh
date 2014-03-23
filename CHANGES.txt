@@ -280,7 +280,10 @@ Release 0.8.0 - unreleased
 
   BUG FIXES
 
-    TAJO-693: StatusUpdateTransition in QueryUnitAttempt handles TA_UPDATE 
+    TAJO-698: Error occurs when FUNCTION and IN statement are used together.
+    (hyunsik)
+
+    TAJO-693: StatusUpdateTransition in QueryUnitAttempt handles TA_UPDATE
     incorrectly. (hyunsik)
 
     TAJO-687: TajoMaster should pass tajoConf to create catalogServer. 
