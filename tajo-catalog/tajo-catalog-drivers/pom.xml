@@ -74,6 +74,15 @@
       </modules>
     </profile>
     <profile>
+      <id>hcatalog-cdh4.6.0</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <modules>
+        <module>tajo-hcatalog</module>
+      </modules>
+    </profile>
+    <profile>
       <id>hcatalog-0.11.0</id>
       <activation>
         <activeByDefault>false</activeByDefault>

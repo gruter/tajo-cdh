@@ -55,9 +55,11 @@ Build
  * Use -Dtar to create a TAR with the distribution (using -Pdist)
  * Use -Phadoop-cdh4.4.0 to apply on hadoop-2.0.0-cdh4.4.0
  * Use -Phadoop-cdh4.5.0 to apply on hadoop-2.0.0-cdh4.5.0
+ * Use -Phadoop-cdh4.6.0 to apply on hadoop-2.0.0-cdh4.6.0
  * Use -Phcatalog-cdh4.3.0 to integrate with hive-0.10.0-cdh4.3.0
  * Use -Phcatalog-cdh4.4.0 to integrate with hive-0.10.0-cdh4.4.0
  * Use -Phcatalog-cdh4.5.0 to integrate with hive-0.10.0-cdh4.5.0
+ * Use -Phcatalog-cdh4.6.0 to integrate with hive-0.10.0-cdh4.6.0
 
 3. Tests options
  * Use -DskipTests to skip tests when running the following Maven goals:
@@ -79,7 +81,10 @@ Build
  <pre>
   $ mvn package -Pdist -DskipTests -Dtar -Phadoop-cdh4.5.0
  </pre>
-
+ * Create binary distribution for cdh4.6.0
+ <pre>
+  $ mvn package -Pdist -DskipTests -Dtar -Phadoop-cdh4.6.0
+ </pre>
 
 Mailing lists
 =============

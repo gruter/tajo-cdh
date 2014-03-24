@@ -89,27 +89,26 @@ public class HCatalogUtil {
 
   public static String getHiveFieldType(TajoDataTypes.DataType dataType) {
     Preconditions.checkNotNull(dataType);
-
     switch (dataType.getType()) {
-    case CHAR: return serdeConstants.CHAR_TYPE_NAME;
-    case BOOLEAN: return serdeConstants.BOOLEAN_TYPE_NAME;
-    case INT1: return serdeConstants.TINYINT_TYPE_NAME;
-    case INT2: return serdeConstants.SMALLINT_TYPE_NAME;
-    case INT4: return serdeConstants.INT_TYPE_NAME;
-    case INT8: return serdeConstants.BIGINT_TYPE_NAME;
-    case FLOAT4: return serdeConstants.FLOAT_TYPE_NAME;
-    case FLOAT8: return serdeConstants.DOUBLE_TYPE_NAME;
-    case TEXT: return serdeConstants.STRING_TYPE_NAME;
-    case VARCHAR: return serdeConstants.VARCHAR_TYPE_NAME;
-    case NCHAR: return serdeConstants.VARCHAR_TYPE_NAME;
-    case NVARCHAR: return serdeConstants.VARCHAR_TYPE_NAME;
-    case BINARY: return serdeConstants.BINARY_TYPE_NAME;
-    case VARBINARY: return serdeConstants.BINARY_TYPE_NAME;
-    case BLOB: return serdeConstants.BINARY_TYPE_NAME;
-    case DATE: return serdeConstants.DATE_TYPE_NAME;
-    case TIMESTAMP: return serdeConstants.TIMESTAMP_TYPE_NAME;
-    default:
-      throw new CatalogException(dataType + " is not supported.");
+      case CHAR: return serdeConstants.STRING_TYPE_NAME;
+      case BOOLEAN: return serdeConstants.BOOLEAN_TYPE_NAME;
+      case INT1: return serdeConstants.TINYINT_TYPE_NAME;
+      case INT2: return serdeConstants.SMALLINT_TYPE_NAME;
+      case INT4: return serdeConstants.INT_TYPE_NAME;
+      case INT8: return serdeConstants.BIGINT_TYPE_NAME;
+      case FLOAT4: return serdeConstants.FLOAT_TYPE_NAME;
+      case FLOAT8: return serdeConstants.DOUBLE_TYPE_NAME;
+      case TEXT: return serdeConstants.STRING_TYPE_NAME;
+      case VARCHAR: return serdeConstants.STRING_TYPE_NAME;
+      case NCHAR: return serdeConstants.STRING_TYPE_NAME;
+      case NVARCHAR: return serdeConstants.STRING_TYPE_NAME;
+      case BINARY: return serdeConstants.BINARY_TYPE_NAME;
+      case VARBINARY: return serdeConstants.BINARY_TYPE_NAME;
+      case BLOB: return serdeConstants.BINARY_TYPE_NAME;
+      case DATE: return serdeConstants.DATE_TYPE_NAME;
+      case TIMESTAMP: return serdeConstants.TIMESTAMP_TYPE_NAME;
+      default:
+        throw new CatalogException(dataType + " is not supported.");
     }
   }
 

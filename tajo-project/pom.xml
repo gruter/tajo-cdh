@@ -891,6 +891,22 @@
       </dependencies>
     </profile>
     <profile>
+      <id>hadoop-cdh4.6.0</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <properties>
+        <hadoop.version>2.0.0-cdh4.6.0</hadoop.version>
+      </properties>
+      <dependencies>
+        <dependency>
+          <groupId>com.google.guava</groupId>
+          <artifactId>guava</artifactId>
+          <version>15.0</version>
+        </dependency>
+      </dependencies>
+    </profile>
+    <profile>
       <id>docs</id>
       <activation>
         <activeByDefault>false</activeByDefault>
