@@ -22,6 +22,7 @@ import org.apache.tajo.catalog.Column;
 import org.apache.tajo.catalog.SortSpec;
 import org.apache.tajo.common.TajoDataTypes.DataType;
 import org.apache.tajo.datum.Datum;
+import org.apache.tajo.datum.NullDatum;
 import org.apache.tajo.storage.Tuple;
 import org.apache.tajo.storage.TupleRange;
 
@@ -113,10 +114,12 @@ public abstract class RangePartitionAlgorithm {
         }
         break;
       case TEXT:
+        final char textStart =  start instanceof NullDatum ? '0' : start.asChars().charAt(0);
+        final char textEnd = end instanceof NullDatum ? '0' : end.asChars().charAt(0);
         if (isAscending) {
-          columnCard = new BigDecimal(end.asChars().charAt(0) - start.asChars().charAt(0));
+          columnCard = new BigDecimal(textEnd - textStart);
         } else {
-          columnCard = new BigDecimal(start.asChars().charAt(0) - end.asChars().charAt(0));
+          columnCard = new BigDecimal(textStart - textEnd);
         }
         break;
       case DATE:
@@ -134,11 +137,18 @@ public abstract class RangePartitionAlgorithm {
           columnCard = new BigDecimal(start.asInt8() - end.asInt8());
         }
         break;
+      case INET4:
+        if (isAscending) {
+          columnCard = new BigDecimal(end.asInt4() - start.asInt4());
+        } else {
+          columnCard = new BigDecimal(start.asInt4() - end.asInt4());
+        }
+        break;
       default:
         throw new UnsupportedOperationException(dataType + " is not supported yet");
     }
 
-    return inclusive ? columnCard.add(new BigDecimal(1)) : columnCard;
+    return inclusive ? columnCard.add(new BigDecimal(1)).abs() : columnCard.abs();
   }
 
   /**

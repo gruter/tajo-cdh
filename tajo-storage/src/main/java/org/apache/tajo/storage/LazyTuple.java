@@ -215,6 +215,7 @@ public class LazyTuple implements Tuple, Cloneable {
 
   @Override
   public int hashCode() {
+    /*
     int hashCode = 37;
     for (int i = 0; i < values.length; i++) {
       Datum d = get(i);
@@ -226,6 +227,8 @@ public class LazyTuple implements Tuple, Cloneable {
     }
 
     return hashCode;
+    */
+    return Arrays.hashCode(values);
   }
 
   @Override

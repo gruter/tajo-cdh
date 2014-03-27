@@ -132,6 +132,9 @@ Release 0.8.0 - unreleased
 
   IMPROVEMENTS
 
+    TAJO-685: Add prerequisite to the document of network functions and operators. 
+    (jihoon)
+
     TAJO-644: Support quoted identifiers. (hyunsik)
     
     TAJO-553: Add a method to the TajoClient to get finished query lists. 
@@ -280,10 +283,27 @@ Release 0.8.0 - unreleased
 
   BUG FIXES
 
+    TAJO-679: TimestampDatum, TimeDatum, DateDatum should be able to be compared 
+    with NullDatum. (Alvin Henrick via jihoon)
+
+    TAJO-716: Using column names actually aliased in aggregation functions
+    can cause planning error. (hyunsik)
+
     TAJO-698: Error occurs when FUNCTION and IN statement are used together.
     (hyunsik)
+    
+    TAJO-712: Fix some bugs after database is supported. (hyunsik)
 
-    TAJO-693: StatusUpdateTransition in QueryUnitAttempt handles TA_UPDATE
+    TAJO-692: Missing Null handling for INET4 in RowStoreUtil. (jihoon)
+
+    TAJO-701: Invalid bytes when creating BlobDatum with offset. (jinho)
+
+    TAJO-705: CTAS always stores tables with CSV storage type into catalog.
+    (jinho)
+
+    TAJO-707: Jenkins build failure in TestNetTypes. (jihoon)
+
+    TAJO-693: StatusUpdateTransition in QueryUnitAttempt handles TA_UPDATE 
     incorrectly. (hyunsik)
 
     TAJO-687: TajoMaster should pass tajoConf to create catalogServer. 
@@ -551,6 +571,8 @@ Release 0.8.0 - unreleased
     TAJO-293: querymasters directory not found in single node setup. (hyunsik)
 
   TASKS
+
+    TAJO-684: Add functions about time. (Alvin Henrick via jihoon)
 
     TAJO-669: Add cluster setup documentation. (hyunsik)
 
@@ -828,6 +850,9 @@ Release 0.2.0 - released
     TAJO-2: remove all @author tags and update license header. (hyunsik)
 
   BUG FIXES
+
+    TAJO-682: RangePartitionAlgorithm should be improved to handle empty
+    texts. (hyunsik)
 
     TAJO-511: Sometimes, a query progress becomes higher than 100%. (jihoon)
 

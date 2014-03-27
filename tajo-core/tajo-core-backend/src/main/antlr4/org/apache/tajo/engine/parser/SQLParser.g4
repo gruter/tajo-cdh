@@ -377,6 +377,11 @@ predefined_type
   | datetime_type
   | bit_type
   | binary_type
+  | network_type
+  ;
+
+network_type
+  : INET4
   ;
 
 character_string_type
@@ -1081,7 +1086,7 @@ set_qualifier
   ;
 
 column_reference
-  : (tb_name=identifier DOT)? name=identifier
+  : ((db_name = identifier DOT)? (tb_name=identifier DOT))? name=identifier
   ;
 
 as_clause
