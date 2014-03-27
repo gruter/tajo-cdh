@@ -202,6 +202,7 @@ COUNT : C O U N T;
 CUBE : C U B E;
 
 DAY : D A Y;
+DATABASE : D A T A B A S E;
 DEC : D E C;
 DECADE : D E C A D E;
 DOW : D O W;
@@ -225,6 +226,7 @@ GROUPING : G R O U P I N G;
 HASH : H A S H;
 HOUR : H O U R;
 
+IF : I F;
 INDEX : I N D E X;
 INSERT : I N S E R T;
 INTERSECTION : I N T E R S E C T I O N;
@@ -403,13 +405,12 @@ LineComment
 ===============================================================================
 */
 
-Identifier
-  : Regular_Identifier
+Regular_Identifier
+  : ('a'..'z'|'A'..'Z'|'_') ('a'..'z'|'A'..'Z'|Digit|'_')* { setText(getText().toLowerCase()); }
   ;
 
-fragment
-Regular_Identifier
-  : ('a'..'z'|'A'..'Z'|'_') ('a'..'z'|'A'..'Z'|Digit|'_')*
+Quoted_Identifier
+  : DOUBLE_QUOTE ( ESC_SEQ | ~('\\'|'"') )* DOUBLE_QUOTE { setText(getText().substring(1, getText().length()-1)); }
   ;
 
 /*

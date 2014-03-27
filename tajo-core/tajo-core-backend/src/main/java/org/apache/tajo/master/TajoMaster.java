@@ -52,6 +52,7 @@ import org.apache.tajo.master.metrics.WorkerResourceMetricsGaugeSet;
 import org.apache.tajo.master.querymaster.QueryJobManager;
 import org.apache.tajo.master.rm.TajoWorkerResourceManager;
 import org.apache.tajo.master.rm.WorkerResourceManager;
+import org.apache.tajo.master.session.SessionManager;
 import org.apache.tajo.rpc.RpcChannelFactory;
 import org.apache.tajo.storage.AbstractStorageManager;
 import org.apache.tajo.storage.StorageManagerFactory;
@@ -72,6 +73,9 @@ import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+
+import static org.apache.tajo.TajoConstants.DEFAULT_DATABASE_NAME;
+import static org.apache.tajo.TajoConstants.DEFAULT_TABLESPACE_NAME;
 
 public class TajoMaster extends CompositeService {
   private static final String METRICS_GROUP_NAME = "tajomaster";
@@ -115,6 +119,7 @@ public class TajoMaster extends CompositeService {
   private AsyncDispatcher dispatcher;
   private TajoMasterClientService tajoMasterClientService;
   private TajoMasterService tajoMasterService;
+  private SessionManager sessionManager;
 
   private WorkerResourceManager resourceManager;
   //Web Server
@@ -164,7 +169,10 @@ public class TajoMaster extends CompositeService {
 
       catalogServer = new CatalogServer(initBuiltinFunctions());
       addIfService(catalogServer);
-      catalog = new LocalCatalogWrapper(catalogServer, systemConf);
+      catalog = new LocalCatalogWrapper(catalogServer);
+
+      sessionManager = new SessionManager(dispatcher);
+      addIfService(sessionManager);
 
       globalEngine = new GlobalEngine(context);
       addIfService(globalEngine);
@@ -177,13 +185,12 @@ public class TajoMaster extends CompositeService {
 
       tajoMasterService = new TajoMasterService(context);
       addIfService(tajoMasterService);
-
     } catch (Exception e) {
       LOG.error(e.getMessage(), e);
+      throw new RuntimeException(e);
     }
 
     super.init(systemConf);
-
     LOG.info("Tajo Master is initialized.");
   }
 
@@ -344,7 +351,15 @@ public class TajoMaster extends CompositeService {
 
   @Override
   public void start() {
-    LOG.info("TajoMaster startup");
+    LOG.info("TajoMaster is starting up");
+
+    // check base tablespace and databases
+    try {
+      checkBaseTBSpaceAndDatabase();
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+
     super.start();
 
     // Setting the system global configs
@@ -380,6 +395,20 @@ public class TajoMaster extends CompositeService {
       out.close();
     }
     defaultFS.setReplication(systemConfPath, (short) systemConf.getIntVar(ConfVars.SYSTEM_CONF_REPLICA_COUNT));
+  }
+
+  private void checkBaseTBSpaceAndDatabase() throws IOException {
+    if (!catalog.existTablespace(DEFAULT_TABLESPACE_NAME)) {
+      catalog.createTablespace(DEFAULT_TABLESPACE_NAME, context.getConf().getVar(ConfVars.WAREHOUSE_DIR));
+    } else {
+      LOG.info(String.format("Default tablespace (%s) is already prepared.", DEFAULT_TABLESPACE_NAME));
+    }
+
+    if (!catalog.existDatabase(DEFAULT_DATABASE_NAME)) {
+      globalEngine.createDatabase(null, DEFAULT_DATABASE_NAME, DEFAULT_TABLESPACE_NAME, false);
+    } else {
+      LOG.info(String.format("Default database (%s) is already prepared.", DEFAULT_DATABASE_NAME));
+    }
   }
 
   @Override
@@ -453,6 +482,10 @@ public class TajoMaster extends CompositeService {
 
     public CatalogService getCatalog() {
       return catalog;
+    }
+
+    public SessionManager getSessionManager() {
+      return sessionManager;
     }
 
     public GlobalEngine getGlobalEngine() {

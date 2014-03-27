@@ -770,7 +770,7 @@
       <dependency>
         <groupId>junit</groupId>
         <artifactId>junit</artifactId>
-        <version>4.10</version>
+        <version>4.11</version>
         <type>jar</type>
         <scope>compile</scope>
       </dependency>
@@ -881,6 +881,22 @@
       </activation>
       <properties>
         <hadoop.version>2.0.0-cdh4.5.0</hadoop.version>
+      </properties>
+      <dependencies>
+        <dependency>
+          <groupId>com.google.guava</groupId>
+          <artifactId>guava</artifactId>
+          <version>15.0</version>
+        </dependency>
+      </dependencies>
+    </profile>
+    <profile>
+      <id>hadoop-cdh4.6.0</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <properties>
+        <hadoop.version>2.0.0-cdh4.6.0</hadoop.version>
       </properties>
       <dependencies>
         <dependency>

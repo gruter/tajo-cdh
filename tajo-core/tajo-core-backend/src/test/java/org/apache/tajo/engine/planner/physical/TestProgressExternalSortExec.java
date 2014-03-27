@@ -21,6 +21,7 @@ package org.apache.tajo.engine.planner.physical;
 
 import org.apache.hadoop.fs.Path;
 import org.apache.tajo.LocalTajoTestingUtility;
+import org.apache.tajo.TajoConstants;
 import org.apache.tajo.TajoTestingCluster;
 import org.apache.tajo.algebra.Expr;
 import org.apache.tajo.catalog.*;
@@ -48,6 +49,8 @@ import org.junit.Test;
 import java.util.Random;
 
 import static junit.framework.Assert.assertNotNull;
+import static org.apache.tajo.TajoConstants.DEFAULT_DATABASE_NAME;
+import static org.apache.tajo.TajoConstants.DEFAULT_TABLESPACE_NAME;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -73,13 +76,15 @@ public class TestProgressExternalSortExec {
     util = new TajoTestingCluster();
     catalog = util.startCatalogCluster().getCatalog();
     testDir = CommonTestingUtil.getTestDir(TEST_PATH);
+    catalog.createTablespace(DEFAULT_TABLESPACE_NAME, testDir.toUri().toString());
+    catalog.createDatabase(DEFAULT_DATABASE_NAME, DEFAULT_TABLESPACE_NAME);
     conf.setVar(TajoConf.ConfVars.WORKER_TEMPORAL_DIR, testDir.toString());
     sm = StorageManagerFactory.getStorageManager(conf, testDir);
 
     Schema schema = new Schema();
-    schema.addColumn("managerId", TajoDataTypes.Type.INT4);
-    schema.addColumn("empId", TajoDataTypes.Type.INT4);
-    schema.addColumn("deptName", TajoDataTypes.Type.TEXT);
+    schema.addColumn("managerid", TajoDataTypes.Type.INT4);
+    schema.addColumn("empid", TajoDataTypes.Type.INT4);
+    schema.addColumn("deptname", TajoDataTypes.Type.TEXT);
 
     TableMeta employeeMeta = CatalogUtil.newTableMeta(CatalogProtos.StoreType.RAW);
     Path employeePath = new Path(testDir, "employee.csv");
@@ -101,8 +106,10 @@ public class TestProgressExternalSortExec {
     System.out.println(appender.getStats().getNumRows() + " rows (" + appender.getStats().getNumBytes() + " Bytes)");
 
     testDataStats = appender.getStats();
-    employee = new TableDesc("employee", schema, employeeMeta, employeePath);
-    catalog.addTable(employee);
+    employee = new TableDesc(
+        CatalogUtil.buildFQName(TajoConstants.DEFAULT_DATABASE_NAME, "employee"), schema, employeeMeta,
+        employeePath);
+    catalog.createTable(employee);
     analyzer = new SQLAnalyzer();
     planner = new LogicalPlanner(catalog);
   }
@@ -128,14 +135,14 @@ public class TestProgressExternalSortExec {
   }
 
   private void testProgress(int sortBufferBytesNum) throws Exception {
-    FileFragment[] frags = StorageManager.splitNG(conf, "employee", employee.getMeta(), employee.getPath(),
+    FileFragment[] frags = StorageManager.splitNG(conf, "default.employee", employee.getMeta(), employee.getPath(),
         Integer.MAX_VALUE);
     Path workDir = new Path(testDir, TestExternalSortExec.class.getName());
     TaskAttemptContext ctx = new TaskAttemptContext(conf,
         LocalTajoTestingUtility.newQueryUnitAttemptId(), new FileFragment[] { frags[0] }, workDir);
     ctx.setEnforcer(new Enforcer());
     Expr expr = analyzer.parse(QUERIES[0]);
-    LogicalPlan plan = planner.createPlan(expr);
+    LogicalPlan plan = planner.createPlan(LocalTajoTestingUtility.createDummySession(), expr);
     LogicalNode rootNode = plan.getRootBlock().getRoot();
 
     PhysicalPlanner phyPlanner = new PhysicalPlannerImpl(conf, sm);
@@ -164,8 +171,8 @@ public class TestProgressExternalSortExec {
     exec.init();
     TupleComparator comparator = new TupleComparator(proj.getSchema(),
         new SortSpec[]{
-            new SortSpec(new Column("managerId", TajoDataTypes.Type.INT4)),
-            new SortSpec(new Column("empId", TajoDataTypes.Type.INT4))
+            new SortSpec(new Column("managerid", TajoDataTypes.Type.INT4)),
+            new SortSpec(new Column("empid", TajoDataTypes.Type.INT4))
         });
 
     float initProgress = 0.0f;

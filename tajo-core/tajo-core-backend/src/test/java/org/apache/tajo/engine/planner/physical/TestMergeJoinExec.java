@@ -21,6 +21,7 @@ package org.apache.tajo.engine.planner.physical;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.tajo.LocalTajoTestingUtility;
+import org.apache.tajo.TajoConstants;
 import org.apache.tajo.TajoTestingCluster;
 import org.apache.tajo.algebra.Expr;
 import org.apache.tajo.catalog.*;
@@ -46,6 +47,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 
+import static org.apache.tajo.TajoConstants.DEFAULT_TABLESPACE_NAME;
 import static org.apache.tajo.ipc.TajoWorkerProtocol.JoinEnforce.JoinAlgorithm;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -68,15 +70,17 @@ public class TestMergeJoinExec {
     util.initTestDir();
     catalog = util.startCatalogCluster().getCatalog();
     Path testDir = CommonTestingUtil.getTestDir(TEST_PATH);
+    catalog.createTablespace(DEFAULT_TABLESPACE_NAME, testDir.toUri().toString());
+    catalog.createDatabase(TajoConstants.DEFAULT_DATABASE_NAME, DEFAULT_TABLESPACE_NAME);
     conf = util.getConfiguration();
     FileSystem fs = testDir.getFileSystem(conf);
     sm = StorageManagerFactory.getStorageManager(conf, testDir);
 
     Schema employeeSchema = new Schema();
-    employeeSchema.addColumn("managerId", Type.INT4);
-    employeeSchema.addColumn("empId", Type.INT4);
-    employeeSchema.addColumn("memId", Type.INT4);
-    employeeSchema.addColumn("deptName", Type.TEXT);
+    employeeSchema.addColumn("managerid", Type.INT4);
+    employeeSchema.addColumn("empid", Type.INT4);
+    employeeSchema.addColumn("memid", Type.INT4);
+    employeeSchema.addColumn("deptname", Type.TEXT);
 
     TableMeta employeeMeta = CatalogUtil.newTableMeta(StoreType.CSV);
     Path employeePath = new Path(testDir, "employee.csv");
@@ -99,12 +103,12 @@ public class TestMergeJoinExec {
 
     appender.flush();
     appender.close();
-    employee = CatalogUtil.newTableDesc("employee", employeeSchema, employeeMeta, employeePath);
-    catalog.addTable(employee);
+    employee = CatalogUtil.newTableDesc("default.employee", employeeSchema, employeeMeta, employeePath);
+    catalog.createTable(employee);
 
     Schema peopleSchema = new Schema();
-    peopleSchema.addColumn("empId", Type.INT4);
-    peopleSchema.addColumn("fk_memId", Type.INT4);
+    peopleSchema.addColumn("empid", Type.INT4);
+    peopleSchema.addColumn("fk_memid", Type.INT4);
     peopleSchema.addColumn("name", Type.TEXT);
     peopleSchema.addColumn("age", Type.INT4);
     TableMeta peopleMeta = CatalogUtil.newTableMeta(StoreType.CSV);
@@ -130,8 +134,8 @@ public class TestMergeJoinExec {
     appender.flush();
     appender.close();
 
-    people = CatalogUtil.newTableDesc("people", peopleSchema, peopleMeta, peoplePath);
-    catalog.addTable(people);
+    people = CatalogUtil.newTableDesc("default.people", peopleSchema, peopleMeta, peoplePath);
+    catalog.createTable(people);
     analyzer = new SQLAnalyzer();
     planner = new LogicalPlanner(catalog);
   }
@@ -149,15 +153,15 @@ public class TestMergeJoinExec {
   @Test
   public final void testMergeInnerJoin() throws IOException, PlanningException {
     Expr expr = analyzer.parse(QUERIES[0]);
-    LogicalPlan plan = planner.createPlan(expr);
+    LogicalPlan plan = planner.createPlan(LocalTajoTestingUtility.createDummySession(), expr);
     LogicalNode root = plan.getRootBlock().getRoot();
 
     JoinNode joinNode = PlannerUtil.findTopNode(root, NodeType.JOIN);
     Enforcer enforcer = new Enforcer();
     enforcer.enforceJoinAlgorithm(joinNode.getPID(), JoinAlgorithm.MERGE_JOIN);
 
-    FileFragment[] empFrags = sm.splitNG(conf, "e", employee.getMeta(), employee.getPath(), Integer.MAX_VALUE);
-    FileFragment[] peopleFrags = sm.splitNG(conf, "p", people.getMeta(), people.getPath(), Integer.MAX_VALUE);
+    FileFragment[] empFrags = sm.splitNG(conf, "default.e", employee.getMeta(), employee.getPath(), Integer.MAX_VALUE);
+    FileFragment[] peopleFrags = sm.splitNG(conf, "default.p", people.getMeta(), people.getPath(), Integer.MAX_VALUE);
     FileFragment[] merged = TUtil.concat(empFrags, peopleFrags);
 
     Path workDir = CommonTestingUtil.getTestDir("target/test-data/testMergeInnerJoin");

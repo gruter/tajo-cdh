@@ -43,6 +43,8 @@ import org.junit.Test;
 
 import java.io.IOException;
 
+import static org.apache.tajo.TajoConstants.DEFAULT_DATABASE_NAME;
+import static org.apache.tajo.TajoConstants.DEFAULT_TABLESPACE_NAME;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -66,14 +68,16 @@ public class TestHashAntiJoinExec {
     util.initTestDir();
     catalog = util.startCatalogCluster().getCatalog();
     testDir = CommonTestingUtil.getTestDir(TEST_PATH);
+    catalog.createTablespace(DEFAULT_TABLESPACE_NAME, testDir.toUri().toString());
+    catalog.createDatabase(DEFAULT_DATABASE_NAME, DEFAULT_TABLESPACE_NAME);
     conf = util.getConfiguration();
     sm = StorageManagerFactory.getStorageManager(conf, testDir);
 
     Schema employeeSchema = new Schema();
-    employeeSchema.addColumn("managerId", Type.INT4);
-    employeeSchema.addColumn("empId", Type.INT4);
-    employeeSchema.addColumn("memId", Type.INT4);
-    employeeSchema.addColumn("deptName", Type.TEXT);
+    employeeSchema.addColumn("managerid", Type.INT4);
+    employeeSchema.addColumn("empid", Type.INT4);
+    employeeSchema.addColumn("memid", Type.INT4);
+    employeeSchema.addColumn("deptname", Type.TEXT);
 
     TableMeta employeeMeta = CatalogUtil.newTableMeta(StoreType.CSV);
     Path employeePath = new Path(testDir, "employee.csv");
@@ -93,12 +97,12 @@ public class TestHashAntiJoinExec {
 
     appender.flush();
     appender.close();
-    employee = CatalogUtil.newTableDesc("employee", employeeSchema, employeeMeta, employeePath);
-    catalog.addTable(employee);
+    employee = CatalogUtil.newTableDesc("default.employee", employeeSchema, employeeMeta, employeePath);
+    catalog.createTable(employee);
 
     Schema peopleSchema = new Schema();
-    peopleSchema.addColumn("empId", Type.INT4);
-    peopleSchema.addColumn("fk_memId", Type.INT4);
+    peopleSchema.addColumn("empid", Type.INT4);
+    peopleSchema.addColumn("fk_memid", Type.INT4);
     peopleSchema.addColumn("name", Type.TEXT);
     peopleSchema.addColumn("age", Type.INT4);
     TableMeta peopleMeta = CatalogUtil.newTableMeta(StoreType.CSV);
@@ -118,8 +122,8 @@ public class TestHashAntiJoinExec {
     appender.flush();
     appender.close();
 
-    people = CatalogUtil.newTableDesc("people", peopleSchema, peopleMeta, peoplePath);
-    catalog.addTable(people);
+    people = CatalogUtil.newTableDesc("default.people", peopleSchema, peopleMeta, peoplePath);
+    catalog.createTable(people);
     analyzer = new SQLAnalyzer();
     planner = new LogicalPlanner(catalog);
     optimizer = new LogicalOptimizer(conf);
@@ -141,9 +145,9 @@ public class TestHashAntiJoinExec {
 
   @Test
   public final void testHashAntiJoin() throws IOException, PlanningException {
-    FileFragment[] empFrags = StorageManager.splitNG(conf, "e", employee.getMeta(), employee.getPath(),
+    FileFragment[] empFrags = StorageManager.splitNG(conf, "default.e", employee.getMeta(), employee.getPath(),
         Integer.MAX_VALUE);
-    FileFragment[] peopleFrags = StorageManager.splitNG(conf, "p", people.getMeta(), people.getPath(),
+    FileFragment[] peopleFrags = StorageManager.splitNG(conf, "default.p", people.getMeta(), people.getPath(),
         Integer.MAX_VALUE);
 
     FileFragment[] merged = TUtil.concat(empFrags, peopleFrags);
@@ -153,7 +157,7 @@ public class TestHashAntiJoinExec {
         LocalTajoTestingUtility.newQueryUnitAttemptId(), merged, workDir);
     ctx.setEnforcer(new Enforcer());
     Expr expr = analyzer.parse(QUERIES[0]);
-    LogicalPlan plan = planner.createPlan(expr);
+    LogicalPlan plan = planner.createPlan(LocalTajoTestingUtility.createDummySession(), expr);
     optimizer.optimize(plan);
     LogicalNode rootNode = plan.getRootBlock().getRoot();
 
@@ -169,7 +173,7 @@ public class TestHashAntiJoinExec {
       SeqScanExec scanRightChild = sortRightChild.getChild();
 
       // 'people' should be outer table. So, the below code guarantees that people becomes the outer table.
-      if (scanLeftChild.getTableName().equals("people")) {
+      if (scanLeftChild.getTableName().equals("default.people")) {
         exec = new HashLeftAntiJoinExec(ctx, join.getPlan(), scanRightChild, scanLeftChild);
       } else {
         exec = new HashLeftAntiJoinExec(ctx, join.getPlan(), scanLeftChild, scanRightChild);
@@ -179,7 +183,7 @@ public class TestHashAntiJoinExec {
       SeqScanExec scanLeftChild = (SeqScanExec) join.getLeftChild();
 
       // 'people' should be outer table. So, the below code guarantees that people becomes the outer table.
-      if (scanLeftChild.getTableName().equals("people")) {
+      if (scanLeftChild.getTableName().equals("default.people")) {
         exec = new HashLeftAntiJoinExec(ctx, join.getPlan(), join.getRightChild(), join.getLeftChild());
       } else {
         exec = new HashLeftAntiJoinExec(ctx, join.getPlan(), join.getLeftChild(), join.getRightChild());

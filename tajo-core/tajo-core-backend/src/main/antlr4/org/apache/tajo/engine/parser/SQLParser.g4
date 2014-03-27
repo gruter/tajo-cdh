@@ -54,7 +54,9 @@ data_change_statement
   ;
 
 schema_statement
-  : create_table_statement
+  : database_definition
+  | drop_database_statement
+  | create_table_statement
   | drop_table_statement
   ;
 
@@ -63,12 +65,28 @@ index_statement
     LEFT_PAREN s=sort_specifier_list RIGHT_PAREN p=param_clause?
   ;
 
+database_definition
+  : CREATE DATABASE (if_not_exists)? dbname = identifier
+  ;
+
+if_not_exists
+  : IF NOT EXISTS
+  ;
+
+drop_database_statement
+  : DROP DATABASE (if_exists)? dbname = identifier
+  ;
+
+if_exists
+  : IF EXISTS
+  ;
+
 create_table_statement
-  : CREATE EXTERNAL TABLE table_name table_elements USING file_type=identifier
+  : CREATE EXTERNAL TABLE (if_not_exists)? table_name table_elements USING file_type=identifier
     (param_clause)? (table_partitioning_clauses)? (LOCATION path=Character_String_Literal)
-  | CREATE TABLE table_name table_elements (USING file_type=identifier)?
+  | CREATE TABLE (if_not_exists)? table_name table_elements (USING file_type=identifier)?
     (param_clause)? (table_partitioning_clauses)? (AS query_expression)?
-  | CREATE TABLE table_name (USING file_type=identifier)?
+  | CREATE TABLE (if_not_exists)? table_name (USING file_type=identifier)?
     (param_clause)? (table_partitioning_clauses)? AS query_expression
   ;
 
@@ -168,7 +186,7 @@ partition_name
 */
 
 drop_table_statement
-  : DROP TABLE table_name (PURGE)?
+  : DROP TABLE (if_exists)? table_name (PURGE)?
   ;
 
 /*
@@ -180,8 +198,9 @@ drop_table_statement
 */
 
 identifier
-  : Identifier
+  : Regular_Identifier
   | nonreserved_keywords
+  | Quoted_Identifier
   ;
 
 nonreserved_keywords
@@ -1032,7 +1051,7 @@ table_or_query_name
   ;
 
 table_name
-  : identifier  ( DOT  identifier (  DOT identifier )? )?
+  : identifier (DOT identifier ( DOT identifier)? )?
   ;
 
 query_specification
@@ -1053,7 +1072,7 @@ derived_column
   ;
 
 qualified_asterisk
-  : (tb_name=Identifier DOT)? MULTIPLY
+  : (tb_name=identifier DOT)? MULTIPLY
   ;
 
 set_qualifier
