@@ -39,14 +39,16 @@ public interface AlgebraVisitor<CONTEXT, RESULT> {
   RESULT visitRelationList(CONTEXT ctx, Stack<Expr> stack, RelationList expr) throws PlanningException;
   RESULT visitRelation(CONTEXT ctx, Stack<Expr> stack, Relation expr) throws PlanningException;
   RESULT visitScalarSubQuery(CONTEXT ctx, Stack<Expr> stack, ScalarSubQuery expr) throws PlanningException;
+  RESULT visitExplain(CONTEXT ctx, Stack<Expr> stack, Explain expr) throws PlanningException;
 
   // Data definition language
   RESULT visitCreateDatabase(CONTEXT ctx, Stack<Expr> stack, CreateDatabase expr) throws PlanningException;
   RESULT visitDropDatabase(CONTEXT ctx, Stack<Expr> stack, DropDatabase expr) throws PlanningException;
   RESULT visitCreateTable(CONTEXT ctx, Stack<Expr> stack, CreateTable expr) throws PlanningException;
   RESULT visitDropTable(CONTEXT ctx, Stack<Expr> stack, DropTable expr) throws PlanningException;
+  RESULT visitAlterTable(CONTEXT ctx, Stack<Expr> stack, AlterTable expr) throws PlanningException;
 
-  // Insert or Update
+    // Insert or Update
   RESULT visitInsert(CONTEXT ctx, Stack<Expr> stack, Insert expr) throws PlanningException;
 
   // Logical operators

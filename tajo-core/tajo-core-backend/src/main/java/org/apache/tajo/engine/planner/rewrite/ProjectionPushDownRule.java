@@ -494,7 +494,7 @@ public class ProjectionPushDownRule extends
       if (context.targetListMgr.isEvaluated(sortKey)) {
         Column c = target.getNamedColumn();
         SortSpec sortSpec = new SortSpec(c, node.getSortKeys()[i].isAscending(), node.getSortKeys()[i].isNullFirst());
-        if (!sortSpecs.contains(c)) {
+        if (!sortSpecs.contains(sortSpec)) {
           sortSpecs.add(sortSpec);
         }
       } else {
@@ -573,7 +573,7 @@ public class ProjectionPushDownRule extends
     node.setInSchema(child.getOutSchema());
 
     List<Target> targets = Lists.newArrayList();
-    if (groupingKeyNum > 0) {
+    if (groupingKeyNum > 0 && groupingKeyNames != null) {
       // Restoring grouping key columns
       final List<Column> groupingColumns = new ArrayList<Column>();
       for (int i = 0; i < groupingKeyNum; i++) {
@@ -607,7 +607,7 @@ public class ProjectionPushDownRule extends
     }
 
     // Getting projected targets
-    if (node.hasAggFunctions()) {
+    if (node.hasAggFunctions() && aggEvalNames != null) {
       AggregationFunctionCallEval [] aggEvals = new AggregationFunctionCallEval[aggEvalNames.length];
       int i = 0;
       for (Iterator<String> it = getFilteredReferences(aggEvalNames, TUtil.newList(aggEvalNames)); it.hasNext();) {

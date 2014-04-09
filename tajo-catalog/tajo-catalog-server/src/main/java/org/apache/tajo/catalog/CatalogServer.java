@@ -102,6 +102,11 @@ public class CatalogServer extends AbstractService {
     this.builtingFuncs = sqlFuncs;
   }
 
+  public void reloadBuiltinFunctions(List<FunctionDesc> builtingFuncs) throws ServiceException {
+    this.builtingFuncs = builtingFuncs;
+    initBuiltinFunctions(builtingFuncs);
+  }
+
   @Override
   public void init(Configuration conf) {
 
@@ -298,6 +303,26 @@ public class CatalogServer extends AbstractService {
       } finally {
         wlock.unlock();
       }
+    }
+
+    @Override
+    public BoolProto alterTable(RpcController controller, AlterTableDescProto proto) throws ServiceException {
+      wlock.lock();
+      try {
+        String [] split = CatalogUtil.splitTableName(proto.getTableName());
+        if (!store.existTable(split[0], split[1])) {
+          throw new NoSuchTableException(proto.getTableName());
+        }
+        store.alterTable(proto);
+      } catch (Exception e) {
+        LOG.error(e.getMessage(), e);
+        return BOOL_FALSE;
+      } finally {
+        wlock.unlock();
+        LOG.info("Table " + proto.getTableName() + " is altered in the catalog ("
+            + bindAddressStr + ")");
+      }
+      return BOOL_TRUE;
     }
 
     @Override
@@ -588,7 +613,6 @@ public class CatalogServer extends AbstractService {
 
     @Override
     public BoolProto addPartitions(RpcController controller, PartitionsProto request) throws ServiceException {
-
       return ProtoUtil.TRUE;
     }
 

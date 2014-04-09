@@ -40,12 +40,14 @@ public enum OpType {
   RelationList(RelationList.class),
   Relation(Relation.class),
   ScalarSubQuery(ScalarSubQuery.class),
+  Explain(Explain.class),
 
   // Data definition language
   CreateDatabase(CreateDatabase.class),
   DropDatabase(DropDatabase.class),
   CreateTable(CreateTable.class),
   DropTable(DropTable.class),
+  AlterTable(AlterTable.class),
 
   // Insert or Update
   Insert(Insert.class),

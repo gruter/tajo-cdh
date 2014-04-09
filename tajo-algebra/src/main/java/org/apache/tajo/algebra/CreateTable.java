@@ -155,47 +155,6 @@ public class CreateTable extends Expr {
         ifNotExists == another.ifNotExists;
   }
 
-  public static class ColumnDefinition extends DataTypeExpr {
-    String col_name;
-
-    public ColumnDefinition(String columnName, String dataType) {
-      super(dataType);
-      this.col_name = columnName;
-    }
-
-    public ColumnDefinition(String columnName, DataTypeExpr dataType) {
-      super(dataType.getTypeName());
-      if (dataType.hasLengthOrPrecision()) {
-        setLengthOrPrecision(dataType.lengthOrPrecision);
-        if (dataType.hasScale()) {
-          setScale(dataType.scale);
-        }
-      }
-      this.col_name = columnName;
-    }
-
-    public String getColumnName() {
-      return this.col_name;
-    }
-
-    @Override
-    public int hashCode() {
-      int hash = super.hashCode();
-      return hash * 89 * col_name.hashCode();
-
-    }
-
-    @Override
-    public boolean equalsTo(Expr expr) {
-      if (expr instanceof ColumnDefinition) {
-        ColumnDefinition another = (ColumnDefinition) expr;
-        return col_name.equals(another.col_name) && super.equalsTo(another);
-      }
-
-      return false;
-    }
-  }
-
   public static enum PartitionType {
     RANGE,
     HASH,
@@ -323,8 +282,8 @@ public class CreateTable extends Expr {
     }
 
     public boolean equals(Object object) {
-      if (object instanceof HashPartition) {
-        HashPartition another = (HashPartition) object;
+      if (object instanceof ListPartition) {
+        ListPartition another = (ListPartition) object;
         return type == another.type && TUtil.checkEquals(columns, another.columns) &&
             specifiers.equals(another.specifiers);
       } else {
@@ -356,13 +315,12 @@ public class CreateTable extends Expr {
     }
 
     public boolean equals(Object object) {
-      if (object instanceof HashPartition) {
+      if (object instanceof ColumnPartition) {
         ColumnPartition another = (ColumnPartition) object;
         return type == another.type && TUtil.checkEquals(columns, another.columns) &&
             TUtil.checkEquals(isOmitValues, another.isOmitValues);
-      } else {
-        return false;
       }
+      return false;
     }
   }
 

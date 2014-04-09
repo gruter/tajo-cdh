@@ -36,6 +36,8 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
+import parquet.hadoop.ParquetOutputFormat;
+
 import static org.apache.tajo.catalog.proto.CatalogProtos.StoreType;
 import static org.apache.tajo.common.TajoDataTypes.Type;
 
@@ -148,15 +150,18 @@ public class CatalogUtil {
     boolean openQuote = identifier.charAt(0) == '"';
     boolean closeQuote = identifier.charAt(identifier.length() - 1) == '"';
 
-    if (openQuote ^ closeQuote || identifier.length() < 2) {
+    // if at least one quote mark exists, the identifier must be grater than equal to 2 characters,
+    if (openQuote ^ closeQuote && identifier.length() < 2) {
       throw new IllegalArgumentException("Invalid Identifier: " + identifier);
     }
 
+    // does not allow the empty identifier (''),
     if (openQuote && closeQuote && identifier.length() == 2) {
       throw new IllegalArgumentException("zero-length delimited identifier: " + identifier);
     }
 
-    return openQuote && closeQuote && identifier.length() > 2;
+    // Ensure the quote open and close
+    return openQuote && closeQuote;
   }
 
   public static boolean isFQColumnName(String tableName) {
@@ -281,6 +286,8 @@ public class CatalogUtil {
       return StoreType.TREVNI;
     } else if (typeStr.equalsIgnoreCase(StoreType.PARQUET.name())) {
       return StoreType.PARQUET;
+    } else if (typeStr.equalsIgnoreCase(StoreType.SEQUENCEFILE.name())) {
+      return StoreType.SEQUENCEFILE;
     } else {
       return null;
     }
@@ -288,9 +295,23 @@ public class CatalogUtil {
   public static Options newOptionsWithDefault(StoreType type) {
     Options options = new Options();
     if(StoreType.CSV == type){
-      options.put(CatalogConstants.CSVFILE_DELIMITER, CatalogConstants.CSVFILE_DELIMITER_DEFAULT);
+      options.put(CatalogConstants.CSVFILE_DELIMITER, CatalogConstants.DEFAULT_FIELD_DELIMITER);
     } else if(StoreType.RCFILE == type){
-      options.put(CatalogConstants.RCFILE_SERDE, CatalogConstants.RCFILE_BINARY_SERDE);
+      options.put(CatalogConstants.RCFILE_SERDE, CatalogConstants.DEFAULT_BINARY_SERDE);
+    } else if(StoreType.SEQUENCEFILE == type){
+      options.put(CatalogConstants.SEQUENCEFILE_SERDE, CatalogConstants.DEFAULT_TEXT_SERDE);
+      options.put(CatalogConstants.SEQUENCEFILE_DELIMITER, CatalogConstants.DEFAULT_FIELD_DELIMITER);
+    } else if (type == StoreType.PARQUET) {
+      options.put(ParquetOutputFormat.BLOCK_SIZE,
+          CatalogConstants.PARQUET_DEFAULT_BLOCK_SIZE);
+      options.put(ParquetOutputFormat.PAGE_SIZE,
+          CatalogConstants.PARQUET_DEFAULT_PAGE_SIZE);
+      options.put(ParquetOutputFormat.COMPRESSION,
+          CatalogConstants.PARQUET_DEFAULT_COMPRESSION_CODEC_NAME);
+      options.put(ParquetOutputFormat.ENABLE_DICTIONARY,
+          CatalogConstants.PARQUET_DEFAULT_IS_DICTIONARY_ENABLED);
+      options.put(ParquetOutputFormat.VALIDATION,
+          CatalogConstants.PARQUET_DEFAULT_IS_VALIDATION_ENABLED);
     }
 
     return options;
@@ -440,5 +461,30 @@ public class CatalogUtil {
     for (String keyword : RESERVED_KEYWORDS) {
       RESERVED_KEYWORDS_SET.add(keyword);
     }
+  }
+
+  public static AlterTableDesc renameColumn(String tableName, String oldColumName, String newColumName, AlterTableType alterTableType) {
+    final AlterTableDesc alterTableDesc = new AlterTableDesc();
+    alterTableDesc.setTableName(tableName);
+    alterTableDesc.setColumnName(oldColumName);
+    alterTableDesc.setNewColumnName(newColumName);
+    alterTableDesc.setAlterTableType(alterTableType);
+    return alterTableDesc;
+  }
+
+  public static AlterTableDesc renameTable(String tableName, String newTableName, AlterTableType alterTableType) {
+    final AlterTableDesc alterTableDesc = new AlterTableDesc();
+    alterTableDesc.setTableName(tableName);
+    alterTableDesc.setNewTableName(newTableName);
+    alterTableDesc.setAlterTableType(alterTableType);
+    return alterTableDesc;
+  }
+
+  public static AlterTableDesc addNewColumn(String tableName, Column column, AlterTableType alterTableType) {
+    final AlterTableDesc alterTableDesc = new AlterTableDesc();
+    alterTableDesc.setTableName(tableName);
+    alterTableDesc.setAddColumn(column);
+    alterTableDesc.setAlterTableType(alterTableType);
+    return alterTableDesc;
   }
 }

@@ -250,33 +250,7 @@ public class TajoMasterClientService extends AbstractService {
     }
 
     @Override
-    public ExplainQueryResponse explainQuery(RpcController controller,
-                                           SessionedStringProto request) throws ServiceException {
-
-      try {
-        Session session = context.getSessionManager().getSession(request.getSessionId().getId());
-
-        if(LOG.isDebugEnabled()) {
-          LOG.debug("ExplainQuery [" + request.getValue() + "]");
-        }
-        ClientProtos.ExplainQueryResponse.Builder responseBuilder = ClientProtos.ExplainQueryResponse.newBuilder();
-        responseBuilder.setResultCode(ResultCode.OK);
-        String plan = context.getGlobalEngine().explainQuery(session, request.getValue());
-        if(LOG.isDebugEnabled()) {
-          LOG.debug("ExplainQuery [" + plan + "]");
-        }
-        responseBuilder.setExplain(plan);
-        return responseBuilder.build();
-      } catch (Exception e) {
-        LOG.error(e.getMessage(), e);
-        ClientProtos.ExplainQueryResponse.Builder responseBuilder = ClientProtos.ExplainQueryResponse.newBuilder();
-        responseBuilder.setResultCode(ResultCode.ERROR);
-        responseBuilder.setErrorMessage(e.getMessage());
-        return responseBuilder.build();
-      }
-    }
-    @Override
-    public GetQueryStatusResponse submitQuery(RpcController controller, QueryRequest request) throws ServiceException {
+    public SubmitQueryResponse submitQuery(RpcController controller, QueryRequest request) throws ServiceException {
 
 
       try {
@@ -288,7 +262,8 @@ public class TajoMasterClientService extends AbstractService {
         return context.getGlobalEngine().executeQuery(session, request.getQuery());
       } catch (Exception e) {
         LOG.error(e.getMessage(), e);
-        ClientProtos.GetQueryStatusResponse.Builder responseBuilder = ClientProtos.GetQueryStatusResponse.newBuilder();
+        SubmitQueryResponse.Builder responseBuilder = ClientProtos.SubmitQueryResponse.newBuilder();
+        responseBuilder.setUserName(context.getConf().getVar(ConfVars.USERNAME));
         responseBuilder.setResultCode(ResultCode.ERROR);
         if (e.getMessage() != null) {
           responseBuilder.setErrorMessage(ExceptionUtils.getStackTrace(e));
@@ -328,9 +303,24 @@ public class TajoMasterClientService extends AbstractService {
         context.getSessionManager().touch(request.getSessionId().getId());
         QueryId queryId = new QueryId(request.getQueryId());
         QueryInProgress queryInProgress = context.getQueryJobManager().getQueryInProgress(queryId);
+
+        // if we cannot get a QueryInProgress instance from QueryJobManager,
+        // the instance can be in the finished query list.
+        if (queryInProgress == null) {
+          queryInProgress = context.getQueryJobManager().getFinishedQuery(queryId);
+        }
+
+        GetQueryResultResponse.Builder builder = GetQueryResultResponse.newBuilder();
+
+        // If we cannot the QueryInProgress instance from the finished list,
+        // the query result was expired due to timeout.
+        // In this case, we will result in error.
+        if (queryInProgress == null) {
+          builder.setErrorMessage("No such query: " + queryId.toString());
+          return builder.build();
+        }
+
         QueryInfo queryInfo = queryInProgress.getQueryInfo();
-        GetQueryResultResponse.Builder builder
-            = GetQueryResultResponse.newBuilder();
 
         try {
           //TODO After implementation Tajo's user security feature, Should be modified.
@@ -448,6 +438,11 @@ public class TajoMasterClientService extends AbstractService {
           builder.setState(TajoProtos.QueryState.QUERY_SUCCEEDED);
         } else {
           QueryInProgress queryInProgress = context.getQueryJobManager().getQueryInProgress(queryId);
+
+          // It will try to find a query status from a finished query list.
+          if (queryInProgress == null) {
+            queryInProgress = context.getQueryJobManager().getFinishedQuery(queryId);
+          }
           if (queryInProgress != null) {
             QueryInfo queryInfo = queryInProgress.getQueryInfo();
             builder.setResultCode(ResultCode.OK);
@@ -458,8 +453,6 @@ public class TajoMasterClientService extends AbstractService {
               builder.setQueryMasterHost(queryInfo.getQueryMasterHost());
               builder.setQueryMasterPort(queryInfo.getQueryMasterClientPort());
             }
-            //builder.setInitTime(queryJobManager.getInitializationTime());
-            //builder.setHasResult(!queryJobManager.isCreateTableStmt());
             if (queryInfo.getQueryState() == TajoProtos.QueryState.QUERY_SUCCEEDED) {
               builder.setFinishTime(queryInfo.getFinishTime());
             } else {

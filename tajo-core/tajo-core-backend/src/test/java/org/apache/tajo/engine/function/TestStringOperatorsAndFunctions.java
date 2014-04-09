@@ -596,4 +596,16 @@ public class TestStringOperatorsAndFunctions extends ExprTestBase {
     testEval(schema, "table1", "cr|", "select find_in_set(col1, col2) is null from table1",
         new String[]{"t"}, '|', true);
   }
+
+  @Test
+  public void testConcat() throws IOException {
+    testSimpleEval("select concat('333', '22') ", new String[]{"33322"});
+    testSimpleEval("select concat('한글', '22') ", new String[]{"한글22"});
+  }
+
+  @Test
+  public void testConcat_ws() throws IOException {
+    testSimpleEval("select concat_ws(',', '333', '22') ", new String[]{"333,22"});
+    testSimpleEval("select concat_ws(',', '한글', '22') ", new String[]{"한글,22"});
+  }
 }

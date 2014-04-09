@@ -19,6 +19,7 @@
 package org.apache.tajo.master;
 
 import com.google.common.base.Preconditions;
+import com.google.protobuf.ByteString;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.fs.FileSystem;
@@ -27,14 +28,16 @@ import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.yarn.service.AbstractService;
 import org.apache.tajo.QueryId;
 import org.apache.tajo.QueryIdFactory;
-import org.apache.tajo.TajoProtos;
 import org.apache.tajo.algebra.Expr;
 import org.apache.tajo.annotation.Nullable;
 import org.apache.tajo.catalog.*;
 import org.apache.tajo.catalog.exception.*;
 import org.apache.tajo.catalog.partition.PartitionMethodDesc;
 import org.apache.tajo.catalog.statistics.TableStats;
+import org.apache.tajo.common.TajoDataTypes;
 import org.apache.tajo.conf.TajoConf;
+import org.apache.tajo.datum.DatumFactory;
+import org.apache.tajo.engine.eval.EvalNode;
 import org.apache.tajo.engine.exception.IllegalQueryStatusException;
 import org.apache.tajo.engine.exception.VerifyException;
 import org.apache.tajo.engine.parser.HiveQLAnalyzer;
@@ -47,8 +50,7 @@ import org.apache.tajo.master.TajoMaster.MasterContext;
 import org.apache.tajo.master.querymaster.QueryInfo;
 import org.apache.tajo.master.querymaster.QueryJobManager;
 import org.apache.tajo.master.session.Session;
-import org.apache.tajo.storage.AbstractStorageManager;
-import org.apache.tajo.storage.StorageUtil;
+import org.apache.tajo.storage.*;
 
 import java.io.IOException;
 import java.sql.SQLException;
@@ -56,7 +58,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.apache.tajo.TajoConstants.DEFAULT_TABLESPACE_NAME;
-import static org.apache.tajo.ipc.ClientProtos.GetQueryStatusResponse;
+
+import static org.apache.tajo.ipc.ClientProtos.SubmitQueryResponse;
+import static org.apache.tajo.ipc.ClientProtos.SubmitQueryResponse.SerializedResultSet;
 
 public class GlobalEngine extends AbstractService {
   /** Class Logger */
@@ -103,7 +107,7 @@ public class GlobalEngine extends AbstractService {
     super.stop();
   }
 
-  public GetQueryStatusResponse executeQuery(Session session, String sql)
+  public SubmitQueryResponse executeQuery(Session session, String sql)
       throws InterruptedException, IOException, IllegalQueryStatusException {
 
     LOG.info("SQL: " + sql);
@@ -114,13 +118,13 @@ public class GlobalEngine extends AbstractService {
       String [] cmds = sql.split(" ");
       if(cmds != null) {
           if(cmds[0].equalsIgnoreCase("set")) {
-              String[] params = cmds[1].split("=");
-              context.getConf().set(params[0], params[1]);
-              GetQueryStatusResponse.Builder responseBuilder = GetQueryStatusResponse.newBuilder();
-              responseBuilder.setQueryId(QueryIdFactory.NULL_QUERY_ID.getProto());
-              responseBuilder.setResultCode(ClientProtos.ResultCode.OK);
-              responseBuilder.setState(TajoProtos.QueryState.QUERY_SUCCEEDED);
-              return responseBuilder.build();
+            String[] params = cmds[1].split("=");
+            context.getConf().set(params[0], params[1]);
+            SubmitQueryResponse.Builder responseBuilder = SubmitQueryResponse.newBuilder();
+            responseBuilder.setUserName(context.getConf().getVar(TajoConf.ConfVars.USERNAME));
+            responseBuilder.setQueryId(QueryIdFactory.NULL_QUERY_ID.getProto());
+            responseBuilder.setResultCode(ClientProtos.ResultCode.OK);
+            return responseBuilder.build();
           }
       }
 
@@ -136,49 +140,16 @@ public class GlobalEngine extends AbstractService {
 
       Expr planningContext = hiveQueryMode ? converter.parse(sql) : analyzer.parse(sql);
       LogicalPlan plan = createLogicalPlan(session, planningContext);
-      LogicalRootNode rootNode = plan.getRootBlock().getRoot();
-
-      GetQueryStatusResponse.Builder responseBuilder = GetQueryStatusResponse.newBuilder();
-      if (PlannerUtil.checkIfDDLPlan(rootNode)) {
-        context.getSystemMetrics().counter("Query", "numDDLQuery").inc();
-        updateQuery(session, rootNode.getChild());
-        responseBuilder.setQueryId(QueryIdFactory.NULL_QUERY_ID.getProto());
-        responseBuilder.setResultCode(ClientProtos.ResultCode.OK);
-        responseBuilder.setState(TajoProtos.QueryState.QUERY_SUCCEEDED);
-      } else {
-        context.getSystemMetrics().counter("Query", "numDMLQuery").inc();
-        hookManager.doHooks(queryContext, plan);
-
-        QueryJobManager queryJobManager = this.context.getQueryJobManager();
-        QueryInfo queryInfo;
-
-        queryInfo = queryJobManager.createNewQueryJob(session, queryContext, sql, rootNode);
-
-        if(queryInfo == null) {
-          responseBuilder.setQueryId(QueryIdFactory.NULL_QUERY_ID.getProto());
-          responseBuilder.setResultCode(ClientProtos.ResultCode.ERROR);
-          responseBuilder.setState(TajoProtos.QueryState.QUERY_ERROR);
-          responseBuilder.setErrorMessage("Fail starting QueryMaster.");
-        } else {
-          responseBuilder.setQueryId(queryInfo.getQueryId().getProto());
-          responseBuilder.setResultCode(ClientProtos.ResultCode.OK);
-          responseBuilder.setState(queryInfo.getQueryState());
-          if(queryInfo.getQueryMasterHost() != null) {
-            responseBuilder.setQueryMasterHost(queryInfo.getQueryMasterHost());
-          }
-          responseBuilder.setQueryMasterPort(queryInfo.getQueryMasterClientPort());
-        }
-      }
-      GetQueryStatusResponse response = responseBuilder.build();
-
+      SubmitQueryResponse response = executeQueryInternal(queryContext, session, plan, sql);
       return response;
     } catch (Throwable t) {
       context.getSystemMetrics().counter("Query", "errorQuery").inc();
       LOG.error("\nStack Trace:\n" + StringUtils.stringifyException(t));
-      GetQueryStatusResponse.Builder responseBuilder = GetQueryStatusResponse.newBuilder();
+      SubmitQueryResponse.Builder responseBuilder = SubmitQueryResponse.newBuilder();
+      responseBuilder.setUserName(context.getConf().getVar(TajoConf.ConfVars.USERNAME));
       responseBuilder.setQueryId(QueryIdFactory.NULL_QUERY_ID.getProto());
+      responseBuilder.setIsForwarded(true);
       responseBuilder.setResultCode(ClientProtos.ResultCode.ERROR);
-      responseBuilder.setState(TajoProtos.QueryState.QUERY_ERROR);
       String errorMessage = t.getMessage();
       if (t.getMessage() == null) {
         errorMessage = StringUtils.stringifyException(t);
@@ -188,31 +159,135 @@ public class GlobalEngine extends AbstractService {
     }
   }
 
-  public String explainQuery(Session session, String sql) throws IOException, SQLException, PlanningException {
-    LOG.info("SQL: " + sql);
-    // parse the query
+  private SubmitQueryResponse executeQueryInternal(QueryContext queryContext,
+                                                      Session session,
+                                                      LogicalPlan plan,
+                                                      String sql) throws Exception {
 
-    final boolean hiveQueryMode = context.getConf().getBoolVar(TajoConf.ConfVars.HIVE_QUERY_MODE);
-    Expr planningContext = hiveQueryMode ? converter.parse(sql) : analyzer.parse(sql);
-    LOG.info("hive.query.mode:" + hiveQueryMode);
+    LogicalRootNode rootNode = plan.getRootBlock().getRoot();
 
-    LogicalPlan plan = createLogicalPlan(session, planningContext);
-    return plan.toString();
+    SubmitQueryResponse.Builder responseBuilder = SubmitQueryResponse.newBuilder();
+    responseBuilder.setIsForwarded(false);
+    responseBuilder.setUserName(context.getConf().getVar(TajoConf.ConfVars.USERNAME));
+
+    if (PlannerUtil.checkIfDDLPlan(rootNode)) {
+      context.getSystemMetrics().counter("Query", "numDDLQuery").inc();
+      updateQuery(session, rootNode.getChild());
+      responseBuilder.setQueryId(QueryIdFactory.NULL_QUERY_ID.getProto());
+      responseBuilder.setResultCode(ClientProtos.ResultCode.OK);
+
+    } else if (plan.isExplain()) { // explain query
+      String explainStr = PlannerUtil.buildExplainString(plan.getRootBlock().getRoot());
+      Schema schema = new Schema();
+      schema.addColumn("explain", TajoDataTypes.Type.TEXT);
+      RowStoreUtil.RowStoreEncoder encoder = RowStoreUtil.createEncoder(schema);
+
+      SerializedResultSet.Builder serializedResBuilder = SerializedResultSet.newBuilder();
+
+      VTuple tuple = new VTuple(1);
+      String[] lines = explainStr.split("\n");
+      int bytesNum = 0;
+      for (String line : lines) {
+        tuple.put(0, DatumFactory.createText(line));
+        byte [] encodedData = encoder.toBytes(tuple);
+        bytesNum += encodedData.length;
+        serializedResBuilder.addSerializedTuples(ByteString.copyFrom(encodedData));
+      }
+      serializedResBuilder.setSchema(schema.getProto());
+      serializedResBuilder.setBytesNum(bytesNum);
+
+      responseBuilder.setResultSet(serializedResBuilder.build());
+      responseBuilder.setMaxRowNum(lines.length);
+      responseBuilder.setResultCode(ClientProtos.ResultCode.OK);
+      responseBuilder.setQueryId(QueryIdFactory.NULL_QUERY_ID.getProto());
+
+      // Simple query indicates a form of 'select * from tb_name [LIMIT X];'.
+    } else if (PlannerUtil.checkIfSimpleQuery(plan)) {
+      ScanNode scanNode = plan.getRootBlock().getNode(NodeType.SCAN);
+      TableDesc desc = scanNode.getTableDesc();
+      if (plan.getRootBlock().hasNode(NodeType.LIMIT)) {
+        LimitNode limitNode = plan.getRootBlock().getNode(NodeType.LIMIT);
+        responseBuilder.setMaxRowNum((int) limitNode.getFetchFirstNum());
+      } else {
+        if (desc.getStats().getNumBytes() > 0 && desc.getStats().getNumRows() == 0) {
+          responseBuilder.setMaxRowNum(Integer.MAX_VALUE);
+        }
+      }
+      responseBuilder.setTableDesc(desc.getProto());
+      responseBuilder.setQueryId(QueryIdFactory.NULL_QUERY_ID.getProto());
+      responseBuilder.setResultCode(ClientProtos.ResultCode.OK);
+
+      // NonFromQuery indicates a form of 'select a, x+y;'
+    } else if (PlannerUtil.checkIfNonFromQuery(plan)) {
+      Target [] targets = plan.getRootBlock().getRawTargets();
+      if (targets == null) {
+        throw new PlanningException("No targets");
+      }
+      Tuple outTuple = new VTuple(targets.length);
+      for (int i = 0; i < targets.length; i++) {
+        EvalNode eval = targets[i].getEvalTree();
+        outTuple.put(i, eval.eval(null, null));
+      }
+
+      Schema schema = PlannerUtil.targetToSchema(targets);
+      RowStoreUtil.RowStoreEncoder encoder = RowStoreUtil.createEncoder(schema);
+      byte [] serializedBytes = encoder.toBytes(outTuple);
+      SerializedResultSet.Builder serializedResBuilder = SerializedResultSet.newBuilder();
+      serializedResBuilder.addSerializedTuples(ByteString.copyFrom(serializedBytes));
+      serializedResBuilder.setSchema(schema.getProto());
+      serializedResBuilder.setBytesNum(serializedBytes.length);
+
+      responseBuilder.setResultSet(serializedResBuilder);
+      responseBuilder.setMaxRowNum(1);
+      responseBuilder.setQueryId(QueryIdFactory.NULL_QUERY_ID.getProto());
+      responseBuilder.setResultCode(ClientProtos.ResultCode.OK);
+
+    } else { // it requires distributed execution. So, the query is forwarded to a query master.
+      context.getSystemMetrics().counter("Query", "numDMLQuery").inc();
+      hookManager.doHooks(queryContext, plan);
+
+      QueryJobManager queryJobManager = this.context.getQueryJobManager();
+      QueryInfo queryInfo;
+
+      queryInfo = queryJobManager.createNewQueryJob(session, queryContext, sql, rootNode);
+
+      if(queryInfo == null) {
+        responseBuilder.setQueryId(QueryIdFactory.NULL_QUERY_ID.getProto());
+        responseBuilder.setResultCode(ClientProtos.ResultCode.ERROR);
+        responseBuilder.setErrorMessage("Fail starting QueryMaster.");
+      } else {
+        responseBuilder.setIsForwarded(true);
+        responseBuilder.setQueryId(queryInfo.getQueryId().getProto());
+        responseBuilder.setResultCode(ClientProtos.ResultCode.OK);
+        if(queryInfo.getQueryMasterHost() != null) {
+          responseBuilder.setQueryMasterHost(queryInfo.getQueryMasterHost());
+        }
+        responseBuilder.setQueryMasterPort(queryInfo.getQueryMasterClientPort());
+      }
+      LOG.info("Query is forwarded to " + queryInfo.getQueryMasterHost() + ":" + queryInfo.getQueryMasterPort());
+    }
+    SubmitQueryResponse response = responseBuilder.build();
+    return response;
   }
 
   public QueryId updateQuery(Session session, String sql) throws IOException, SQLException, PlanningException {
-    LOG.info("SQL: " + sql);
-    // parse the query
-    Expr expr = analyzer.parse(sql);
+    try {
+      LOG.info("SQL: " + sql);
+      // parse the query
+      Expr expr = analyzer.parse(sql);
 
-    LogicalPlan plan = createLogicalPlan(session, expr);
-    LogicalRootNode rootNode = plan.getRootBlock().getRoot();
+      LogicalPlan plan = createLogicalPlan(session, expr);
+      LogicalRootNode rootNode = plan.getRootBlock().getRoot();
 
-    if (!PlannerUtil.checkIfDDLPlan(rootNode)) {
-      throw new SQLException("This is not update query:\n" + sql);
-    } else {
-      updateQuery(session, rootNode.getChild());
-      return QueryIdFactory.NULL_QUERY_ID;
+      if (!PlannerUtil.checkIfDDLPlan(rootNode)) {
+        throw new SQLException("This is not update query:\n" + sql);
+      } else {
+        updateQuery(session, rootNode.getChild());
+        return QueryIdFactory.NULL_QUERY_ID;
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
+      throw new IOException(e.getMessage(), e);
     }
   }
 
@@ -235,7 +310,10 @@ public class GlobalEngine extends AbstractService {
         DropTableNode dropTable = (DropTableNode) root;
         dropTable(session, dropTable.getTableName(), dropTable.isIfExists(), dropTable.isPurge());
         return true;
-
+      case ALTER_TABLE:
+         AlterTableNode alterTable = (AlterTableNode) root;
+         alterTable(session,alterTable);
+         return true;
       default:
         throw new InternalError("updateQuery cannot handle such query: \n" + root.toJson());
     }
@@ -275,6 +353,82 @@ public class GlobalEngine extends AbstractService {
     return plan;
   }
 
+  /**
+   * Alter a given table
+   */
+  public void alterTable(final Session session, final AlterTableNode alterTable) throws IOException {
+
+    final CatalogService catalog = context.getCatalog();
+    final String tableName = alterTable.getTableName();
+
+    String databaseName;
+    String simpleTableName;
+    if (CatalogUtil.isFQTableName(tableName)) {
+      String[] split = CatalogUtil.splitFQTableName(tableName);
+      databaseName = split[0];
+      simpleTableName = split[1];
+    } else {
+      databaseName = session.getCurrentDatabase();
+      simpleTableName = tableName;
+    }
+    final String qualifiedName = CatalogUtil.buildFQName(databaseName, simpleTableName);
+
+    if (!catalog.existsTable(databaseName, simpleTableName)) {
+      throw new NoSuchTableException(qualifiedName);
+    }
+
+    switch (alterTable.getAlterTableOpType()) {
+      case RENAME_TABLE:
+        if (!catalog.existsTable(databaseName, simpleTableName)) {
+          throw new NoSuchTableException(alterTable.getTableName());
+        }
+        if (catalog.existsTable(databaseName, alterTable.getNewTableName())) {
+          throw new AlreadyExistsTableException(alterTable.getNewTableName());
+        }
+
+        TableDesc desc = catalog.getTableDesc(databaseName, simpleTableName);
+
+        if (!desc.isExternal()) { // if the table is the managed table
+          Path oldPath = StorageUtil.concatPath(context.getConf().getVar(TajoConf.ConfVars.WAREHOUSE_DIR),
+              databaseName, simpleTableName);
+          Path newPath = StorageUtil.concatPath(context.getConf().getVar(TajoConf.ConfVars.WAREHOUSE_DIR),
+              databaseName, alterTable.getNewTableName());
+          FileSystem fs = oldPath.getFileSystem(context.getConf());
+
+          if (!fs.exists(oldPath)) {
+            throw new IOException("No such a table directory: " + oldPath);
+          }
+          if (fs.exists(newPath)) {
+            throw new IOException("Already table directory exists: " + newPath);
+          }
+
+          fs.rename(oldPath, newPath);
+        }
+        catalog.alterTable(CatalogUtil.renameTable(qualifiedName, alterTable.getNewTableName(),
+            AlterTableType.RENAME_TABLE));
+        break;
+      case RENAME_COLUMN:
+        if (existColumnName(qualifiedName, alterTable.getNewColumnName())) {
+          throw new ColumnNameAlreadyExistException(alterTable.getNewColumnName());
+        }
+        catalog.alterTable(CatalogUtil.renameColumn(qualifiedName, alterTable.getColumnName(), alterTable.getNewColumnName(), AlterTableType.RENAME_COLUMN));
+        break;
+      case ADD_COLUMN:
+        if (existColumnName(qualifiedName, alterTable.getAddNewColumn().getSimpleName())) {
+          throw new ColumnNameAlreadyExistException(alterTable.getAddNewColumn().getSimpleName());
+        }
+        catalog.alterTable(CatalogUtil.addNewColumn(qualifiedName, alterTable.getAddNewColumn(), AlterTableType.ADD_COLUMN));
+        break;
+      default:
+        //TODO
+    }
+  }
+
+  private boolean existColumnName(String tableName, String columnName) {
+    final TableDesc tableDesc = catalog.getTableDesc(tableName);
+    return tableDesc.getSchema().containsByName(columnName) ? true : false;
+  }
+
   private TableDesc createTable(Session session, CreateTableNode createTable, boolean ifNotExists) throws IOException {
     TableMeta meta;
 
@@ -287,7 +441,18 @@ public class GlobalEngine extends AbstractService {
     if(createTable.isExternal()){
       Preconditions.checkState(createTable.hasPath(), "ERROR: LOCATION must be given.");
     } else {
-      Path tablePath = new Path(sm.getWarehouseDir(), createTable.getTableName());
+      String databaseName;
+      String tableName;
+      if (CatalogUtil.isFQTableName(createTable.getTableName())) {
+        databaseName = CatalogUtil.extractQualifier(createTable.getTableName());
+        tableName = CatalogUtil.extractSimpleName(createTable.getTableName());
+      } else {
+        databaseName = session.getCurrentDatabase();
+        tableName = createTable.getTableName();
+      }
+
+      // create a table directory (i.e., ${WAREHOUSE_DIR}/${DATABASE_NAME}/${TABLE_NAME} )
+      Path tablePath = StorageUtil.concatPath(sm.getWarehouseDir(), databaseName, tableName);
       createTable.setPath(tablePath);
     }
 

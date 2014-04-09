@@ -33,6 +33,7 @@ enum StoreType {
   HCFILE = 5;
   TREVNI = 6;
   PARQUET = 7;
+  SEQUENCEFILE = 8;
 }
 
 enum OrderType {
@@ -46,6 +47,12 @@ enum PartitionType {
     HASH = 1;
     LIST = 2;
     COLUMN = 3;
+}
+
+enum AlterTableType {
+  RENAME_TABLE = 0;
+  RENAME_COLUMN = 1;
+  ADD_COLUMN = 2;
 }
 
 message ColumnProto {
@@ -263,3 +270,15 @@ message PartitionDescProto {
   optional string path = 5;
 }
 
+message AlterTableDescProto {
+  required string tableName = 1;
+  optional string newTableName = 2 ;
+  optional ColumnProto addColumn = 3;
+  optional AlterColumnProto alterColumnName = 4;
+  required AlterTableType alterTableType = 5;
+}
+
+message AlterColumnProto {
+  required string oldColumnName = 1;
+  required string newColumnName = 2;
+}

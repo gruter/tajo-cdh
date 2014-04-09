@@ -96,6 +96,9 @@ public class BaseAlgebraVisitor<CONTEXT, RESULT> implements AlgebraVisitor<CONTE
     case ScalarSubQuery:
       current = visitScalarSubQuery(ctx, stack, (ScalarSubQuery) expr);
       break;
+    case Explain:
+      current = visitExplain(ctx, stack, (Explain) expr);
+      break;
 
     case CreateDatabase:
       current = visitCreateDatabase(ctx, stack, (CreateDatabase) expr);
@@ -108,6 +111,9 @@ public class BaseAlgebraVisitor<CONTEXT, RESULT> implements AlgebraVisitor<CONTE
       break;
     case DropTable:
       current = visitDropTable(ctx, stack, (DropTable) expr);
+      break;
+    case AlterTable:
+      current = visitAlterTable(ctx, stack, (AlterTable) expr);
       break;
 
     case Insert:
@@ -404,6 +410,14 @@ public class BaseAlgebraVisitor<CONTEXT, RESULT> implements AlgebraVisitor<CONTE
     return visitDefaultUnaryExpr(ctx, stack, expr);
   }
 
+  @Override
+  public RESULT visitExplain(CONTEXT ctx, Stack<Expr> stack, Explain expr) throws PlanningException {
+    stack.push(expr);
+    RESULT child = visit(ctx, stack, expr.getChild());
+    stack.pop();
+    return child;
+  }
+
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Data Definition Language Section
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -433,6 +447,11 @@ public class BaseAlgebraVisitor<CONTEXT, RESULT> implements AlgebraVisitor<CONTE
   public RESULT visitDropTable(CONTEXT ctx, Stack<Expr> stack, DropTable expr) throws PlanningException {
     return null;
   }
+
+  @Override
+  public RESULT visitAlterTable(CONTEXT ctx, Stack<Expr> stack, AlterTable expr) throws PlanningException {
+        return null;
+    }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Insert or Update Section

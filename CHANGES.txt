@@ -4,6 +4,15 @@ Release 0.8.0 - unreleased
 
   NEW FEATURES
 
+    TAJO-616: SequenceFile support. (jaehwa)
+
+    TAJO-480: Umbrella Jira for adding ALTER TABLE statement.
+    (Alvin Henrick via hyunsik)
+
+    TAJO-378: Implement concat_ws function. (Seungun Choe via jaehwa)
+
+    TAJO-377: Implement concat function (Seungun Choe via jaehwa)
+
     TAJO-30: Parquet Integration. (David Chen via hyunsik)
 
     TAJO-353: Add Database support to Tajo. (hyunsik)
@@ -134,7 +143,21 @@ Release 0.8.0 - unreleased
 
   IMPROVEMENTS
 
-    TAJO-685: Add prerequisite to the document of network functions and operators. 
+    TAJO-356: Improve TajoClient to directly get query results in the first request.
+    (hyunsik)
+
+    TAJO-728: Supports expression IN statement. (hyunsik)
+
+    TAJO-725: Broadcast JOIN should supports multiple tables. (hyoungjunkim via jaehwa)
+
+    TAJO-735: Remove multiple SLF4J bindings message. (hyoungjunkim via hyunsik)
+
+    TAJO-714: Enable setting Parquet tuning parameters. (David Chen via hyunsik)
+
+    TAJO-691: HashJoin or HashAggregation is too slow if there is many unique keys.
+    (hyoungjunkim via hyunsik)
+
+    TAJO-685: Add prerequisite to the document of network functions and operators.
     (jihoon)
 
     TAJO-644: Support quoted identifiers. (hyunsik)
@@ -285,8 +308,24 @@ Release 0.8.0 - unreleased
 
   BUG FIXES
 
-    TAJO-679: TimestampDatum, TimeDatum, DateDatum should be able to be compared 
-    with NullDatum. (Alvin Henrick via jihoon)
+    TAJO-738: NPE occur when failed in QueryMaster's GlobalPlanner.build().
+    (hyoungjunkim via hyunsik)
+
+    TAJO-739: A subquery with the same column alias caused planning error.
+    (hyoungjunkim via hyunsik)
+
+    TAJO-729: PreLogicalPlanVerifier verifies distinct aggregation functions
+    incorrectly. (hyunsik)
+
+    TAJO-719: JUnit test failures. (jinho)
+
+    TAJO-713: Missing INET4 in UniformRangePartition. (jihoon)
+
+    TAJO-718: A group-by clause with the same columns but aliased causes
+    planning error. (hyunsik)
+
+    TAJO-679: TimestampDatum, TimeDatum, DateDatum should be able to be
+    compared with NullDatum. (Alvin Henrick via jihoon)
 
     TAJO-716: Using column names actually aliased in aggregation functions
     can cause planning error. (hyunsik)
@@ -297,6 +336,8 @@ Release 0.8.0 - unreleased
     TAJO-712: Fix some bugs after database is supported. (hyunsik)
 
     TAJO-692: Missing Null handling for INET4 in RowStoreUtil. (jihoon)
+
+    TAJO-712: Fix some bugs after database is supported. (hyunsik)
 
     TAJO-701: Invalid bytes when creating BlobDatum with offset. (jinho)
 
@@ -573,6 +614,13 @@ Release 0.8.0 - unreleased
     TAJO-293: querymasters directory not found in single node setup. (hyunsik)
 
   TASKS
+
+    TAJO-529: Fix warnings in tajo-algebra. (jaehwa)
+
+    TAJO-700: Update site, wikis, pom.xml and other resources to point to the 
+    new repository location. (jihoon)
+
+    TAJO-694: Bump up hadoop to 2.3.0. (jinho)
 
     TAJO-684: Add functions about time. (Alvin Henrick via jihoon)
 

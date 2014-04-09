@@ -26,6 +26,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.yarn.Clock;
 import org.apache.hadoop.yarn.event.EventHandler;
 import org.apache.hadoop.yarn.service.CompositeService;
@@ -36,7 +37,10 @@ import org.apache.tajo.catalog.TableDesc;
 import org.apache.tajo.conf.TajoConf;
 import org.apache.tajo.engine.parser.HiveQLAnalyzer;
 import org.apache.tajo.engine.parser.SQLAnalyzer;
-import org.apache.tajo.engine.planner.*;
+import org.apache.tajo.engine.planner.LogicalOptimizer;
+import org.apache.tajo.engine.planner.LogicalPlan;
+import org.apache.tajo.engine.planner.LogicalPlanner;
+import org.apache.tajo.engine.planner.PlannerUtil;
 import org.apache.tajo.engine.planner.global.MasterPlan;
 import org.apache.tajo.engine.planner.logical.LogicalNode;
 import org.apache.tajo.engine.planner.logical.NodeType;
@@ -109,6 +113,8 @@ public class QueryMasterTask extends CompositeService {
 
   private TajoMetrics queryMetrics;
 
+  private Throwable initError;
+
   public QueryMasterTask(QueryMaster.QueryMasterContext queryMasterContext,
                          QueryId queryId, Session session, QueryContext queryContext, String sql,
                          String logicalPlanJson) {
@@ -153,8 +159,9 @@ public class QueryMasterTask extends CompositeService {
       queryMetrics = new TajoMetrics(queryId.toString());
 
       super.init(systemConf);
-    } catch (IOException e) {
-      LOG.error(e.getMessage(), e);
+    } catch (Throwable t) {
+      LOG.error(t.getMessage(), t);
+      initError = t;
     }
   }
 
@@ -294,54 +301,46 @@ public class QueryMasterTask extends CompositeService {
   }
 
   public synchronized void startQuery() {
-    if(query != null) {
-      LOG.warn("Query already started");
-      return;
-    }
-
-    CatalogService catalog = getQueryTaskContext().getQueryMasterContext().getWorkerContext().getCatalog();
-    LogicalPlanner planner = new LogicalPlanner(catalog);
-    LogicalOptimizer optimizer = new LogicalOptimizer(systemConf);
-    Expr expr;
-    if (queryContext.isHiveQueryMode()) {
-      HiveQLAnalyzer HiveQLAnalyzer = new HiveQLAnalyzer();
-      expr = HiveQLAnalyzer.parse(sql);
-    } else {
-      SQLAnalyzer analyzer = new SQLAnalyzer();
-      expr = analyzer.parse(sql);
-    }
-    LogicalPlan plan = null;
     try {
-      plan = planner.createPlan(session, expr);
+      if (query != null) {
+        LOG.warn("Query already started");
+        return;
+      }
+      CatalogService catalog = getQueryTaskContext().getQueryMasterContext().getWorkerContext().getCatalog();
+      LogicalPlanner planner = new LogicalPlanner(catalog);
+      LogicalOptimizer optimizer = new LogicalOptimizer(systemConf);
+      Expr expr;
+      if (queryContext.isHiveQueryMode()) {
+        HiveQLAnalyzer HiveQLAnalyzer = new HiveQLAnalyzer();
+        expr = HiveQLAnalyzer.parse(sql);
+      } else {
+        SQLAnalyzer analyzer = new SQLAnalyzer();
+        expr = analyzer.parse(sql);
+      }
+      LogicalPlan plan = planner.createPlan(session, expr);
       optimizer.optimize(plan);
-    } catch (PlanningException e) {
-      e.printStackTrace();
-    }
 
-    GlobalEngine.DistributedQueryHookManager hookManager = new GlobalEngine.DistributedQueryHookManager();
-    hookManager.addHook(new GlobalEngine.InsertHook());
-    hookManager.doHooks(queryContext, plan);
-
-    try {
+      GlobalEngine.DistributedQueryHookManager hookManager = new GlobalEngine.DistributedQueryHookManager();
+      hookManager.addHook(new GlobalEngine.InsertHook());
+      hookManager.doHooks(queryContext, plan);
 
       for (LogicalPlan.QueryBlock block : plan.getQueryBlocks()) {
         LogicalNode[] scanNodes = PlannerUtil.findAllNodes(block.getRoot(), NodeType.SCAN);
-        if(scanNodes != null) {
-          for(LogicalNode eachScanNode: scanNodes) {
-            ScanNode scanNode = (ScanNode)eachScanNode;
+        if (scanNodes != null) {
+          for (LogicalNode eachScanNode : scanNodes) {
+            ScanNode scanNode = (ScanNode) eachScanNode;
             tableDescMap.put(scanNode.getCanonicalName(), scanNode.getTableDesc());
           }
         }
 
         scanNodes = PlannerUtil.findAllNodes(block.getRoot(), NodeType.PARTITIONS_SCAN);
-        if(scanNodes != null) {
-          for(LogicalNode eachScanNode: scanNodes) {
-            ScanNode scanNode = (ScanNode)eachScanNode;
+        if (scanNodes != null) {
+          for (LogicalNode eachScanNode : scanNodes) {
+            ScanNode scanNode = (ScanNode) eachScanNode;
             tableDescMap.put(scanNode.getCanonicalName(), scanNode.getTableDesc());
           }
         }
       }
-
       MasterPlan masterPlan = new MasterPlan(queryId, queryContext, plan);
       queryMasterContext.getGlobalPlanner().build(masterPlan);
 
@@ -349,13 +348,10 @@ public class QueryMasterTask extends CompositeService {
           "", queryTaskContext.getEventHandler(), masterPlan);
 
       dispatcher.register(QueryEventType.class, query);
-
       queryTaskContext.getEventHandler().handle(new QueryEvent(queryId, QueryEventType.START));
-    } catch (Exception e) {
-      LOG.error(e.getMessage(), e);
-      //TODO how set query failed(???)
-      //send FAIL query status
-      //this.statusMessage = StringUtils.stringifyException(e);
+    } catch (Throwable t) {
+      LOG.error(t.getMessage(), t);
+      initError = t;
     }
   }
 
@@ -473,12 +469,32 @@ public class QueryMasterTask extends CompositeService {
     return queryId;
   }
 
+  public boolean isInitError() {
+    return initError != null;
+  }
+
   public QueryState getState() {
     if(query == null) {
-      return QueryState.QUERY_NOT_ASSIGNED;
+      if (isInitError()) {
+        return QueryState.QUERY_ERROR;
+      } else {
+        return QueryState.QUERY_NOT_ASSIGNED;
+      }
     } else {
       return query.getState();
     }
+  }
+
+  public String getErrorMessage() {
+    if (isInitError()) {
+      return StringUtils.stringifyException(initError);
+    } else {
+      return null;
+    }
+  }
+
+  public long getQuerySubmitTime() {
+    return this.querySubmitTime;
   }
 
   public class QueryMasterTaskContext {
