@@ -143,6 +143,10 @@ Release 0.8.0 - unreleased
 
   IMPROVEMENTS
 
+    TAJO-743: Change the default resource allocation policy of leaf tasks. (jinho)
+
+    TAJO-717: Improve file splitting for large number of splits. (jinho)
+
     TAJO-356: Improve TajoClient to directly get query results in the first request.
     (hyunsik)
 
@@ -678,6 +682,8 @@ Release 0.8.0 - unreleased
     TAJO-319: Update homepage and bump tajo version to 0.8. (hyunsik)
 
   SUB TASKS
+
+    TAJO-736: Add table management documentation. (hyunsik)
 
     TAJO-602: WorkerResourceManager should be broke down into 3 parts.
     (hyunsik)
