@@ -487,7 +487,7 @@ public class PullServerAuxService extends AbstractService
       }
       ChannelFuture writeFuture;
       if (ch.getPipeline().get(SslHandler.class) == null) {
-        final FadvisedFileRegion partition = new FadvisedFileRegion(spill,
+        final FadvisedFileRegionWrapper partition = new FadvisedFileRegionWrapper(spill,
             file.startOffset, file.length(), manageOsCache, readaheadLength,
             readaheadPool, file.getFile().getAbsolutePath());
         writeFuture = ch.write(partition);

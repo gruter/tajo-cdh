@@ -39,6 +39,7 @@
     <hadoop.version>2.0.0-cdh4.3.0</hadoop.version>
     <protobuf.version>2.4.1</protobuf.version>
     <tajo.root>${project.parent.relativePath}/..</tajo.root>
+    <extra.source.path>src/main/hadoop-2.2.0</extra.source.path>
   </properties>
 
   <licenses>
@@ -245,12 +246,6 @@
     <url>https://issues.apache.org/jira/browse/TAJO</url>
   </issueManagement>
 
-  <scm>
-    <url>https://git-wip-us.apache.org/repos/asf/incubator-tajo.git</url>
-    <connection>scm:git:http://git-wip-us.apache.org/repos/asf/incubator-tajo.git</connection>
-    <developerConnection>scm:git:https://git-wip-us.apache.org/repos/asf/incubator-tajo.git</developerConnection>
-  </scm>
-
   <mailingLists>
     <mailingList>
       <name>Development list</name>
@@ -397,7 +392,7 @@
         <plugin>
           <groupId>org.codehaus.mojo</groupId>
           <artifactId>findbugs-maven-plugin</artifactId>
-          <version>2.3.2</version>
+          <version>2.5.3</version>
           <configuration>
             <findbugsXmlOutput>true</findbugsXmlOutput>
             <xmlOutput>true</xmlOutput>
@@ -575,6 +570,38 @@
         <artifactId>maven-surefire-report-plugin</artifactId>
         <version>2.15</version>
       </plugin>
+
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>1.8</version>
+        <executions>
+          <execution>
+            <id>add-source</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>add-source</goal>
+            </goals>
+            <configuration>
+              <sources>
+                <source>${extra.source.path}</source>
+              </sources>
+            </configuration>
+          </execution>
+          <execution>
+            <id>add-source-2.3</id>
+            <phase>prepare-package</phase>
+            <goals>
+              <goal>add-source</goal>
+            </goals>
+            <configuration>
+              <sources>
+                 <source>${extra.source.path}</source>
+              </sources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
 
@@ -664,6 +691,11 @@
 
       <dependency>
         <groupId>org.apache.hadoop</groupId>
+        <artifactId>hadoop-client</artifactId>
+        <version>${hadoop.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hadoop</groupId>
         <artifactId>hadoop-common</artifactId>
         <version>${hadoop.version}</version>
         <exclusions>
@@ -747,6 +779,21 @@
         <type>test-jar</type>
         <scope>test</scope>
       </dependency>
+      <dependency>
+        <groupId>org.apache.hadoop</groupId>
+        <artifactId>hadoop-mapreduce-client-shuffle</artifactId>
+        <version>${hadoop.version}</version>
+        <exclusions>
+          <exclusion>
+            <artifactId>hadoop-mapreduce-client-core</artifactId>
+            <groupId>org.apache.hadoop</groupId>
+          </exclusion>
+          <exclusion>
+            <artifactId>hadoop-yarn-server-nodemanager</artifactId>
+            <groupId>org.apache.hadoop</groupId>
+          </exclusion>
+        </exclusions>
+      </dependency>
 
       <dependency>
         <groupId>com.google.protobuf</groupId>
@@ -828,9 +875,14 @@
         </exclusions>
       </dependency>
       <dependency>
+        <groupId>commons-lang</groupId>
+        <artifactId>commons-lang</artifactId>
+        <version>2.6</version>
+      </dependency>
+      <dependency>
         <groupId>com.google.guava</groupId>
         <artifactId>guava</artifactId>
-        <version>15.0</version>
+        <version>11.0.2</version>
       </dependency>
       <dependency>
         <groupId>com.google.code.gson</groupId>
@@ -853,6 +905,16 @@
         <artifactId>joda-time</artifactId>
         <version>2.3</version>
       </dependency>
+      <dependency>
+        <groupId>org.apache.derby</groupId>
+        <artifactId>derby</artifactId>
+        <version>10.8.2.2</version>
+      </dependency>
+      <dependency>
+        <groupId>jline</groupId>
+        <artifactId>jline</artifactId>
+        <version>2.11</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
   <profiles>
@@ -863,6 +925,7 @@
       </activation>
       <properties>
         <hadoop.version>2.0.0-cdh4.3.0</hadoop.version>
+        <extra.source.path>src/main/hadoop-2.2.0</extra.source.path>
       </properties>
     </profile>
     <profile>
@@ -872,6 +935,7 @@
     </activation>
     <properties>
       <hadoop.version>2.0.0-cdh4.4.0</hadoop.version>
+      <extra.source.path>src/main/hadoop-2.2.0</extra.source.path>
     </properties>
     </profile>
     <profile>
@@ -881,14 +945,8 @@
       </activation>
       <properties>
         <hadoop.version>2.0.0-cdh4.5.0</hadoop.version>
+        <extra.source.path>src/main/hadoop-2.3.0</extra.source.path>
       </properties>
-      <dependencies>
-        <dependency>
-          <groupId>com.google.guava</groupId>
-          <artifactId>guava</artifactId>
-          <version>15.0</version>
-        </dependency>
-      </dependencies>
     </profile>
     <profile>
       <id>hadoop-cdh4.6.0</id>
@@ -897,14 +955,8 @@
       </activation>
       <properties>
         <hadoop.version>2.0.0-cdh4.6.0</hadoop.version>
+        <extra.source.path>src/main/hadoop-2.3.0</extra.source.path>
       </properties>
-      <dependencies>
-        <dependency>
-          <groupId>com.google.guava</groupId>
-          <artifactId>guava</artifactId>
-          <version>15.0</version>
-        </dependency>
-      </dependencies>
     </profile>
     <profile>
       <id>docs</id>

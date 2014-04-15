@@ -30,6 +30,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.DataInputByteBuffer;
 import org.apache.hadoop.io.DataOutputBuffer;
 import org.apache.hadoop.io.ReadaheadPool;
+import org.apache.hadoop.mapred.FadvisedChunkedFile;
 import org.apache.hadoop.metrics2.MetricsSystem;
 import org.apache.hadoop.metrics2.annotation.Metric;
 import org.apache.hadoop.metrics2.annotation.Metrics;
@@ -43,6 +44,7 @@ import org.apache.hadoop.yarn.service.AbstractService;
 import org.apache.tajo.catalog.Schema;
 import org.apache.tajo.conf.TajoConf;
 import org.apache.tajo.conf.TajoConf.ConfVars;
+import org.apache.tajo.pullserver.listener.FileCloseListener;
 import org.apache.tajo.pullserver.retriever.FileChunk;
 import org.apache.tajo.rpc.RpcChannelFactory;
 import org.apache.tajo.storage.RowStoreUtil;
@@ -484,18 +486,11 @@ public class TajoPullServerService extends AbstractService {
       }
       ChannelFuture writeFuture;
       if (ch.getPipeline().get(SslHandler.class) == null) {
-        final FadvisedFileRegion filePart = new FadvisedFileRegion(spill,
+        final FadvisedFileRegionWrapper filePart = new FadvisedFileRegionWrapper(spill,
             file.startOffset, file.length(), manageOsCache, readaheadLength,
             readaheadPool, file.getFile().getAbsolutePath());
         writeFuture = ch.write(filePart);
-        writeFuture.addListener(new ChannelFutureListener() {
-          // TODO error handling; distinguish IO/connection failures,
-          //      attribute to appropriate spill output
-          @Override
-          public void operationComplete(ChannelFuture future) {
-            filePart.releaseExternalResources();
-          }
-        });
+        writeFuture.addListener(new FileCloseListener(filePart));
       } else {
         // HTTPS cannot be done with zero copy.
         final FadvisedChunkedFile chunk = new FadvisedChunkedFile(spill,

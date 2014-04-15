@@ -143,6 +143,11 @@ Release 0.8.0 - unreleased
 
   IMPROVEMENTS
 
+    TAJO-755: ALTER TABLESPACE LOCATION support. (hyunsilk)
+    
+    TAJO-732: Support executing LINUX shell command and HDFS command.
+    (hyoungjun kim via hyunsik)
+
     TAJO-745: APIs in TajoClient and JDBC should be case sensitive.
 
     TAJO-743: Change the default resource allocation policy of leaf tasks. (jinho)
@@ -624,6 +629,8 @@ Release 0.8.0 - unreleased
 
   TASKS
 
+    TAJO-753: Clean up of maven dependencies. (jinho)
+
     TAJO-529: Fix warnings in tajo-algebra. (jaehwa)
 
     TAJO-700: Update site, wikis, pom.xml and other resources to point to the 
@@ -687,6 +694,9 @@ Release 0.8.0 - unreleased
     TAJO-319: Update homepage and bump tajo version to 0.8. (hyunsik)
 
   SUB TASKS
+
+    TAJO-215: Catalog should allow compatible types when finding functions.
+    (Alvin Henrick via hyunsik)
 
     TAJO-736: Add table management documentation. (hyunsik)
 
@@ -911,6 +921,11 @@ Release 0.2.0 - released
     TAJO-2: remove all @author tags and update license header. (hyunsik)
 
   BUG FIXES
+
+    TAJO-759: Fix findbug errors added recently. (hyunsik)
+
+    TAJO-754: failure of INSERT INTO may remove the target table.
+    (hyunsik)
 
     TAJO-682: RangePartitionAlgorithm should be improved to handle empty
     texts. (hyunsik)

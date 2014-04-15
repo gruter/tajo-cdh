@@ -25,12 +25,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.google.protobuf.ServiceException;
-import org.apache.hadoop.ipc.RemoteException;
 import org.apache.tajo.conf.TajoConf;
 
 public abstract class ServerCallable<T> {
   protected InetSocketAddress addr;
-  protected TajoConf tajoConf;
   protected long startTime;
   protected long endTime;
   protected Class protocol;
@@ -157,8 +155,8 @@ public abstract class ServerCallable<T> {
     if (t instanceof UndeclaredThrowableException) {
       t = t.getCause();
     }
-    if (t instanceof RemoteException) {
-      t = ((RemoteException)t).unwrapRemoteException();
+    if (t instanceof RemoteException && t.getCause() != null) {
+      t = t.getCause();
     }
     return t;
   }

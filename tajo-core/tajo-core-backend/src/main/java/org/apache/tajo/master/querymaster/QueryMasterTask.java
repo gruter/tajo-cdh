@@ -268,7 +268,9 @@ public class QueryMasterTask extends CompositeService {
     @Override
     public void handle(LocalTaskEvent event) {
       TajoContainerProxy proxy = (TajoContainerProxy) resourceAllocator.getContainers().get(event.getContainerId());
-      proxy.killTaskAttempt(event.getTaskAttemptId());
+      if (proxy != null) {
+        proxy.killTaskAttempt(event.getTaskAttemptId());
+      }
     }
   }
 
@@ -420,11 +422,6 @@ public class QueryMasterTask extends CompositeService {
       if (stagingDir != null && defaultFS.exists(stagingDir)) {
         defaultFS.delete(stagingDir, true);
         LOG.info("The staging directory '" + stagingDir + "' is deleted");
-      }
-
-      if (outputDir != null && defaultFS.exists(outputDir)) {
-        defaultFS.delete(outputDir, true);
-        LOG.info("The output directory '" + outputDir + "' is deleted");
       }
 
       throw ioe;

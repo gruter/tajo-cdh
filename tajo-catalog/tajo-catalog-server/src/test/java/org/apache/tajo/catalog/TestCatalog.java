@@ -45,7 +45,12 @@ import java.util.*;
 
 import static org.apache.tajo.TajoConstants.DEFAULT_DATABASE_NAME;
 import static org.apache.tajo.catalog.CatalogConstants.CATALOG_URI;
+import static org.apache.tajo.catalog.proto.CatalogProtos.AlterTablespaceProto;
+import static org.apache.tajo.catalog.proto.CatalogProtos.AlterTablespaceProto.AlterTablespaceCommand;
+import static org.apache.tajo.catalog.proto.CatalogProtos.AlterTablespaceProto.AlterTablespaceType;
+import static org.apache.tajo.catalog.proto.CatalogProtos.AlterTablespaceProto.SetLocation;
 import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 public class TestCatalog {
 	static final String FieldName1="f1";
@@ -113,6 +118,77 @@ public class TestCatalog {
 	public static void tearDown() throws IOException {
 	  server.stop();
 	}
+
+  @Test
+  public void testGetTablespace() throws Exception {
+    //////////////////////////////////////////////////////////////////////////////
+    // Create two table spaces
+    //////////////////////////////////////////////////////////////////////////////
+
+    assertFalse(catalog.existTablespace("space1"));
+    assertTrue(catalog.createTablespace("space1", "hdfs://xxx.com/warehouse"));
+    assertTrue(catalog.existTablespace("space1"));
+
+    assertFalse(catalog.existTablespace("space2"));
+    assertTrue(catalog.createTablespace("space2", "hdfs://yyy.com/warehouse"));
+    assertTrue(catalog.existTablespace("space2"));
+
+    //////////////////////////////////////////////////////////////////////////////
+    // ALTER TABLESPACE space1
+    //////////////////////////////////////////////////////////////////////////////
+
+    // pre verification
+    CatalogProtos.TablespaceProto space1 = catalog.getTablespace("space1");
+    assertEquals("space1", space1.getSpaceName());
+    assertEquals("hdfs://xxx.com/warehouse", space1.getUri());
+
+    // ALTER TABLESPACE space1 LOCATION 'hdfs://zzz.com/warehouse';
+    AlterTablespaceProto.AlterTablespaceCommand.Builder commandBuilder =
+        AlterTablespaceProto.AlterTablespaceCommand.newBuilder();
+    commandBuilder.setType(AlterTablespaceType.LOCATION);
+    commandBuilder.setLocation(SetLocation.newBuilder().setUri("hdfs://zzz.com/warehouse"));
+    AlterTablespaceProto.Builder alter = AlterTablespaceProto.newBuilder();
+    alter.setSpaceName("space1");
+    alter.addCommand(commandBuilder.build());
+    catalog.alterTablespace(alter.build());
+
+    // Verify ALTER TABLESPACE space1
+    space1 = catalog.getTablespace("space1");
+    assertEquals("space1", space1.getSpaceName());
+    assertEquals("hdfs://zzz.com/warehouse", space1.getUri());
+
+    //////////////////////////////////////////////////////////////////////////////
+    // ALTER TABLESPACE space1
+    //////////////////////////////////////////////////////////////////////////////
+
+    // pre verification
+    CatalogProtos.TablespaceProto space2 = catalog.getTablespace("space2");
+    assertEquals("space2", space2.getSpaceName());
+    assertEquals("hdfs://yyy.com/warehouse", space2.getUri());
+
+    // ALTER TABLESPACE space1 LOCATION 'hdfs://zzz.com/warehouse';
+    commandBuilder = AlterTablespaceProto.AlterTablespaceCommand.newBuilder();
+    commandBuilder.setType(AlterTablespaceType.LOCATION);
+    commandBuilder.setLocation(SetLocation.newBuilder().setUri("hdfs://www.com/warehouse"));
+    alter = AlterTablespaceProto.newBuilder();
+    alter.setSpaceName("space2");
+    alter.addCommand(commandBuilder.build());
+    catalog.alterTablespace(alter.build());
+
+    // post verification
+    space1 = catalog.getTablespace("space2");
+    assertEquals("space2", space1.getSpaceName());
+    assertEquals("hdfs://www.com/warehouse", space1.getUri());
+
+
+    //////////////////////////////////////////////////////////////////////////////
+    // Clean up
+    //////////////////////////////////////////////////////////////////////////////
+    assertTrue(catalog.dropTablespace("space1"));
+    assertFalse(catalog.existTablespace("space1"));
+    assertTrue(catalog.dropTablespace("space2"));
+    assertFalse(catalog.existTablespace("space2"));
+  }
 
   @Test
   public void testCreateAndDropDatabases() throws Exception {
@@ -716,4 +792,126 @@ public class TestCatalog {
     return alterTableDesc;
   }
 
+  public static class TestIntFunc extends Function {
+    public TestIntFunc() {
+      super(
+          new Column [] {
+              new Column("name", TajoDataTypes.Type.INT4),
+              new Column("id", TajoDataTypes.Type.INT4)
+          }
+      );
+    }
+    public FunctionType getFunctionType() {
+      return FunctionType.GENERAL;
+    }
+  }
+
+  public static class TestFloatFunc extends Function {
+    public TestFloatFunc() {
+      super(
+          new Column [] {
+              new Column("name", TajoDataTypes.Type.FLOAT8),
+              new Column("id", TajoDataTypes.Type.INT4)
+          }
+      );
+    }
+    public FunctionType getFunctionType() {
+      return FunctionType.GENERAL;
+    }
+  }
+
+  public static class TestAnyParamFunc extends Function {
+    public TestAnyParamFunc() {
+      super(
+          new Column [] {
+              new Column("name", Type.ANY),
+          }
+      );
+    }
+    public FunctionType getFunctionType() {
+      return FunctionType.GENERAL;
+    }
+  }
+
+  @Test
+  public final void testFindIntFunc() throws Exception {
+    assertFalse(catalog.containFunction("testint", FunctionType.GENERAL));
+    FunctionDesc meta = new FunctionDesc("testint", TestIntFunc.class, FunctionType.GENERAL,
+        CatalogUtil.newSimpleDataType(Type.INT4),
+        CatalogUtil.newSimpleDataTypeArray(Type.INT4, Type.INT4));
+    assertTrue(catalog.createFunction(meta));
+
+    // UPGRADE TO INT4 SUCCESS==> LOOK AT SECOND PARAM BELOW
+    FunctionDesc retrieved = catalog.getFunction("testint", CatalogUtil.newSimpleDataTypeArray(Type.INT4, Type.INT2));
+
+    assertEquals(retrieved.getSignature(), "testint");
+    assertEquals(retrieved.getParamTypes()[0], CatalogUtil.newSimpleDataType(Type.INT4));
+    assertEquals(retrieved.getParamTypes()[1] , CatalogUtil.newSimpleDataType(Type.INT4));
+  }
+
+  @Test(expected=NoSuchFunctionException.class)
+  public final void testFindIntInvalidFunc() throws Exception {
+    assertFalse(catalog.containFunction("testintinvalid", FunctionType.GENERAL));
+    FunctionDesc meta = new FunctionDesc("testintinvalid", TestIntFunc.class, FunctionType.GENERAL,
+        CatalogUtil.newSimpleDataType(Type.INT4),
+        CatalogUtil.newSimpleDataTypeArray(Type.INT4, Type.INT4));
+    assertTrue(catalog.createFunction(meta));
+
+    //UPGRADE TO INT8 WILL FAIL ==> LOOK AT SECOND PARAM BELOW
+    catalog.getFunction("testintinvalid", CatalogUtil.newSimpleDataTypeArray(Type.INT4, Type.INT8));
+  }
+
+  @Test
+  public final void testFindFloatFunc() throws Exception {
+    assertFalse(catalog.containFunction("testfloat", FunctionType.GENERAL));
+    FunctionDesc meta = new FunctionDesc("testfloat", TestFloatFunc.class, FunctionType.GENERAL,
+        CatalogUtil.newSimpleDataType(Type.INT4),
+        CatalogUtil.newSimpleDataTypeArray(Type.FLOAT8, Type.INT4));
+    assertTrue(catalog.createFunction(meta));
+
+    //UPGRADE TO FLOAT 8 SUCCESS==> LOOK AT FIRST PARAM BELOW
+    FunctionDesc retrieved = catalog.getFunction("testfloat",
+        CatalogUtil.newSimpleDataTypeArray(Type.FLOAT4, Type.INT4));
+
+    assertEquals(retrieved.getSignature(), "testfloat");
+    assertEquals(retrieved.getParamTypes()[0], CatalogUtil.newSimpleDataType(Type.FLOAT8));
+    assertEquals(retrieved.getParamTypes()[1] , CatalogUtil.newSimpleDataType(Type.INT4));
+  }
+
+  @Test(expected=NoSuchFunctionException.class)
+  public final void testFindFloatInvalidFunc() throws Exception {
+    assertFalse(catalog.containFunction("testfloatinvalid", FunctionType.GENERAL));
+    FunctionDesc meta = new FunctionDesc("testfloatinvalid", TestFloatFunc.class, FunctionType.GENERAL,
+        CatalogUtil.newSimpleDataType(Type.INT4),
+        CatalogUtil.newSimpleDataTypeArray(Type.FLOAT8, Type.INT4));
+    assertTrue(catalog.createFunction(meta));
+
+    //UPGRADE TO DECIMAL WILL FAIL ==> LOOK AT FIRST PARAM BELOW
+    catalog.getFunction("testfloatinvalid", CatalogUtil.newSimpleDataTypeArray(Type.DECIMAL, Type.INT4));
+  }
+
+  @Test
+  public final void testFindAnyTypeParamFunc() throws Exception {
+    assertFalse(catalog.containFunction("testany", FunctionType.GENERAL));
+    FunctionDesc meta = new FunctionDesc("testany", TestAnyParamFunc.class, FunctionType.GENERAL,
+        CatalogUtil.newSimpleDataType(Type.INT4),
+        CatalogUtil.newSimpleDataTypeArray(Type.ANY));
+    assertTrue(catalog.createFunction(meta));
+
+    FunctionDesc retrieved = catalog.getFunction("testany", CatalogUtil.newSimpleDataTypeArray(Type.INT1));
+    assertEquals(retrieved.getSignature(), "testany");
+    assertEquals(retrieved.getParamTypes()[0], CatalogUtil.newSimpleDataType(Type.ANY));
+
+    retrieved = catalog.getFunction("testany", CatalogUtil.newSimpleDataTypeArray(Type.INT8));
+    assertEquals(retrieved.getSignature(), "testany");
+    assertEquals(retrieved.getParamTypes()[0], CatalogUtil.newSimpleDataType(Type.ANY));
+
+    retrieved = catalog.getFunction("testany", CatalogUtil.newSimpleDataTypeArray(Type.FLOAT4));
+    assertEquals(retrieved.getSignature(), "testany");
+    assertEquals(retrieved.getParamTypes()[0], CatalogUtil.newSimpleDataType(Type.ANY));
+
+    retrieved = catalog.getFunction("testany", CatalogUtil.newSimpleDataTypeArray(Type.TEXT));
+    assertEquals(retrieved.getSignature(), "testany");
+    assertEquals(retrieved.getParamTypes()[0], CatalogUtil.newSimpleDataType(Type.ANY));
+  }
 }

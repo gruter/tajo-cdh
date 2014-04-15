@@ -92,7 +92,7 @@ public class HCatalogUtil {
     Preconditions.checkNotNull(dataType);
 
     switch (dataType.getType()) {
-    case CHAR: return serdeConstants.CHAR_TYPE_NAME;
+//    case CHAR: return serdeConstants.CHAR_TYPE_NAME;
     case BOOLEAN: return serdeConstants.BOOLEAN_TYPE_NAME;
     case INT1: return serdeConstants.TINYINT_TYPE_NAME;
     case INT2: return serdeConstants.SMALLINT_TYPE_NAME;
@@ -101,9 +101,9 @@ public class HCatalogUtil {
     case FLOAT4: return serdeConstants.FLOAT_TYPE_NAME;
     case FLOAT8: return serdeConstants.DOUBLE_TYPE_NAME;
     case TEXT: return serdeConstants.STRING_TYPE_NAME;
-    case VARCHAR: return serdeConstants.VARCHAR_TYPE_NAME;
-    case NCHAR: return serdeConstants.VARCHAR_TYPE_NAME;
-    case NVARCHAR: return serdeConstants.VARCHAR_TYPE_NAME;
+//    case VARCHAR: return serdeConstants.VARCHAR_TYPE_NAME;
+//    case NCHAR: return serdeConstants.VARCHAR_TYPE_NAME;
+//    case NVARCHAR: return serdeConstants.VARCHAR_TYPE_NAME;
     case BINARY: return serdeConstants.BINARY_TYPE_NAME;
     case VARBINARY: return serdeConstants.BINARY_TYPE_NAME;
     case BLOB: return serdeConstants.BINARY_TYPE_NAME;

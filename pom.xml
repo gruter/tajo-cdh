@@ -49,10 +49,6 @@
     <url>https://builds.apache.org</url>
   </ciManagement>
 
-  <scm>
-    <url>https://git-wip-us.apache.org/repos/asf/tajo.git</url>
-  </scm>
-
   <repositories>
     <repository>
       <id>eclipse-jetty</id>
@@ -146,9 +142,9 @@
                     echo
                     exit -1
                     fi
-                    if [ "${PROTOC_VERSION}" != "libprotoc 2.4.1" ]; then
+                    if [ "${PROTOC_VERSION}" != "libprotoc ${protobuf.version}" ]; then
                     echo
-                    echo "Tajo-CDH requires protocol buffer version 2.4.1, another versions is not supported."
+                    echo "Tajo-CDH requires protocol buffer version ${protobuf.version}, ${PROTOC_VERSION} is not supported."
                     echo
                     exit -1
                     fi
