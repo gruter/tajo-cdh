@@ -4,6 +4,10 @@ Release 0.8.0 - unreleased
 
   NEW FEATURES
 
+    TAJO-711: Add Avro storage support. (David Chen via hyunsik)
+
+    TAJO-746: Implements function COALESCE. (hyoungjunkim via hyunsik)
+
     TAJO-616: SequenceFile support. (jaehwa)
 
     TAJO-480: Umbrella Jira for adding ALTER TABLE statement.
@@ -318,6 +322,8 @@ Release 0.8.0 - unreleased
     (Keuntae Park via jihoon)
 
   BUG FIXES
+
+    TAJO-765: Incorrect Configuration Classpaths. (jinho)
 
     TAJO-563: INSERT OVERWRITE should not remove data before query success.
     (hyunsik)
