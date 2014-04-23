@@ -67,6 +67,7 @@
   </properties>
 
   <modules>
+    <module>tajo-maven-plugins</module>
     <module>tajo-project</module>
     <module>tajo-common</module>
     <module>tajo-algebra</module>
@@ -77,6 +78,7 @@
     <module>tajo-jdbc</module>
     <module>tajo-dist</module>
     <module>tajo-storage</module>
+    <module>tajo-yarn-pullserver</module>
   </modules>
 
   <build>
@@ -327,7 +329,7 @@
           <excludeSubProjects>false</excludeSubProjects>
           <numUnapprovedLicenses>0</numUnapprovedLicenses>
           <excludes>
-            <exclude>CHANGES.txt</exclude>
+            <exclude>CHANGES</exclude>
             <exclude>**/workers</exclude>
             <exclude>**/querymasters</exclude>
             <exclude>**/*.sql</exclude>

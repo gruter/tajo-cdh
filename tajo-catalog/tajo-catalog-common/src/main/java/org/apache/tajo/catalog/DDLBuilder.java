@@ -29,7 +29,7 @@ public class DDLBuilder {
     StringBuilder sb = new StringBuilder();
 
     sb.append("--\n")
-      .append("-- Name: ").append(desc.getName()).append("; Type: TABLE;")
+      .append("-- Name: ").append(CatalogUtil.denormalizeIdentifier(desc.getName())).append("; Type: TABLE;")
       .append(" Storage: ").append(desc.getMeta().getStoreType().name());
     sb.append("\n-- Path: ").append(desc.getPath());
     sb.append("\n--\n");
@@ -52,9 +52,8 @@ public class DDLBuilder {
     StringBuilder sb = new StringBuilder();
 
     sb.append("--\n")
-        .append("-- Name: ").append(desc.getName()).append("; Type: TABLE;")
+        .append("-- Name: ").append(CatalogUtil.denormalizeIdentifier(desc.getName())).append("; Type: TABLE;")
         .append(" Storage: ").append(desc.getMeta().getStoreType().name());
-    sb.append("\n-- Path: ").append(desc.getPath());
     sb.append("\n--\n");
     sb.append("CREATE TABLE ").append(CatalogUtil.denormalizeIdentifier(desc.getName()));
     buildSchema(sb, desc.getSchema());
