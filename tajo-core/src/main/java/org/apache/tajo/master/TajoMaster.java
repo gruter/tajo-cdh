@@ -27,16 +27,15 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
-import org.apache.hadoop.io.IOUtils;
-import org.apache.hadoop.service.CompositeService;
 import org.apache.hadoop.util.ShutdownHookManager;
-import org.apache.hadoop.util.StringUtils;
+import org.apache.hadoop.yarn.Clock;
+import org.apache.hadoop.yarn.SystemClock;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.event.AsyncDispatcher;
 import org.apache.hadoop.yarn.event.EventHandler;
-import org.apache.hadoop.yarn.util.Clock;
+import org.apache.hadoop.yarn.service.CompositeService;
+import org.apache.hadoop.yarn.service.Service;
 import org.apache.hadoop.yarn.util.RackResolver;
-import org.apache.hadoop.yarn.util.SystemClock;
 import org.apache.tajo.TajoConstants;
 import org.apache.tajo.catalog.*;
 import org.apache.tajo.catalog.function.Function;
@@ -58,7 +57,6 @@ import org.apache.tajo.storage.StorageManagerFactory;
 import org.apache.tajo.util.ClassUtil;
 import org.apache.tajo.util.CommonTestingUtil;
 import org.apache.tajo.util.NetUtils;
-import org.apache.tajo.util.StringUtils;
 import org.apache.tajo.util.metrics.TajoSystemMetrics;
 import org.apache.tajo.webapp.QueryExecutorServlet;
 import org.apache.tajo.webapp.StaticHttpServer;
@@ -574,7 +572,7 @@ public class TajoMaster extends CompositeService {
     }
   }
   public static void main(String[] args) throws Exception {
-    StringUtils.startupShutdownMessage(TajoMaster.class, args, LOG);
+    org.apache.tajo.util.StringUtils.startupShutdownMessage(TajoMaster.class, args, LOG);
 
     try {
       TajoMaster master = new TajoMaster();
